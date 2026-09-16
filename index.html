@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Spesa</title>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getDatabase, ref, onValue, push, update, remove
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDIllLDwjjYx6kD_l19oew6XBsxHevFrQI",
+    authDomain: "lista-spesa-d32fd.firebaseapp.com",
+    databaseURL: "https://lista-spesa-d32fd-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "lista-spesa-d32fd",
+    storageBucket: "lista-spesa-d32fd.firebasestorage.app",
+    messagingSenderId: "418606100752",
+    appId: "1:418606100752:web:2460e01ca9f0ad7453f595"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const listRef = ref(db, "spesa");
+
+  // ---- Categorie ----
+  const CATEGORIES = [
+    { id: "fresco",     label: "Fresco",         color: "#5c8a5c" },
+    { id: "dispensa",   label: "Dispensa",       color: "#b98a3d" },
+    { id: "surgelati",  label: "Surgelati",      color: "#4f7d9c" },
+    { id: "casa",       label: "Casa e cura",    color: "#8a6a9c" },
+    { id: "bevande",    label: "Bevande",        color: "#a25c5c" },
+    { id: "altro",      label: "Altro",          color: "#8a8578" },
+  ];
+  const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+  const DEFAULT_CAT = "altro";
+
+  let activeCategory = DEFAULT_CAT;
+
+  const form = document.getElementById("add-form");
+  const input = document.getElementById("item-input");
+  const qtyInput = document.getElementById("qty-input");
+  const catPicker = document.getElementById("cat-picker");
+  const listEl = document.getElementById("list");
+  const emptyState = document.getElementById("empty-state");
+  const countEl = document.getElementById("count");
+  const clearBtn = document.getElementById("clear-done");
+  const statusDot = document.getElementById("status-dot");
+
+  // Costruisci i chip di selezione categoria
+  for (const cat of CATEGORIES) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "cat-chip" + (cat.id === activeCategory ? " active" : "");
+    chip.dataset.cat = cat.id;
+    chip.style.setProperty("--chip-color", cat.color);
+    chip.innerHTML = `<span class="dot"></span>${cat.label}`;
+    chip.addEventListener("click", () => {
+      activeCategory = cat.id;
+      catPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === cat.id));
+    });
+    catPicker.appendChild(chip);
+  }
+
+  let items = {};
+
+  onValue(listRef, (snapshot) => {
+    items = snapshot.val() || {};
+    render();
+    statusDot.classList.remove("offline");
+  }, () => {
+    statusDot.classList.add("offline");
+  });
+
+  function render() {
+    const entries = Object.entries(items);
+    listEl.innerHTML = "";
+
+    emptyState.style.display = entries.length === 0 ? "block" : "none";
+
+    // Raggruppa per categoria, mantenendo l'ordine definito in CATEGORIES
+    const groups = {};
+    for (const [id, item] of entries) {
+      const catId = CAT_MAP[item.cat] ? item.cat : DEFAULT_CAT;
+      (groups[catId] ||= []).push([id, item]);
+    }
+    for (const catId in groups) {
+      groups[catId].sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+    }
+
+    let remaining = 0;
+
+    for (const cat of CATEGORIES) {
+      const group = groups[cat.id];
+      if (!group || group.length === 0) continue;
+
+      const section = document.createElement("li");
+      section.className = "cat-section";
+
+      const heading = document.createElement("div");
+      heading.className = "cat-heading";
+      heading.innerHTML = `<span class="dot" style="--chip-color:${cat.color}"></span>${cat.label}`;
+      section.appendChild(heading);
+
+      const sublist = document.createElement("ul");
+      sublist.className = "sublist";
+
+      for (const [id, item] of group) {
+        if (!item.done) remaining++;
+
+        const li = document.createElement("li");
+        li.className = "item" + (item.done ? " done" : "");
+
+        const check = document.createElement("button");
+        check.className = "check";
+        check.style.setProperty("--chip-color", cat.color);
+        check.setAttribute("aria-label", item.done ? "Segna da comprare" : "Segna come preso");
+        check.innerHTML = item.done
+          ? '<svg viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : "";
+        check.addEventListener("click", () => {
+          update(ref(db, "spesa/" + id), { done: !item.done });
+        });
+
+        const label = document.createElement("span");
+        label.className = "label";
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = item.name;
+        label.appendChild(name);
+        if (item.qty) {
+          const qty = document.createElement("span");
+          qty.className = "qty";
+          qty.textContent = item.qty;
+          label.appendChild(qty);
+        }
+
+        const del = document.createElement("button");
+        del.className = "del";
+        del.setAttribute("aria-label", "Rimuovi");
+        del.innerHTML = '<svg viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+        del.addEventListener("click", () => {
+          remove(ref(db, "spesa/" + id));
+        });
+
+        li.appendChild(check);
+        li.appendChild(label);
+        li.appendChild(del);
+        sublist.appendChild(li);
+      }
+
+      section.appendChild(sublist);
+      listEl.appendChild(section);
+    }
+
+    countEl.textContent = remaining === 0
+      ? (entries.length ? "Tutto preso" : "")
+      : remaining === 1 ? "1 da prendere" : remaining + " da prendere";
+
+    clearBtn.style.display = entries.some(([, it]) => it.done) ? "inline-flex" : "none";
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!name) return;
+    const qty = qtyInput.value.trim();
+    const order = Date.now();
+    push(listRef, { name, qty, done: false, order, cat: activeCategory });
+    input.value = "";
+    qtyInput.value = "";
+    input.focus();
+  });
+
+  clearBtn.addEventListener("click", () => {
+    const updates = {};
+    for (const [id, item] of Object.entries(items)) {
+      if (item.done) updates[id] = null;
+    }
+    update(listRef, updates);
+  });
+</script>
+<style>
+  :root{
+    --paper:#faf8f4;
+    --ink:#1f2318;
+    --ink-soft:#5c6155;
+    --leaf:#4a6b4a;
+    --leaf-deep:#33492f;
+    --line:#ddd8cc;
+    --card:#ffffff;
+    --danger:#a2483a;
+    --chip-bg:#f1efe7;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:0 16px 48px;
+  }
+  .app{
+    width:100%;
+    max-width:480px;
+    padding-top:36px;
+  }
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:4px;
+  }
+  h1{
+    font-size:28px;
+    font-weight:600;
+    letter-spacing:0.2px;
+    margin:0;
+    color:var(--leaf-deep);
+  }
+  .status{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+  #status-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--leaf);
+    transition:background .3s;
+  }
+  #status-dot.offline{background:var(--danger);}
+  .subtitle{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 20px;
+  }
+
+  #add-form{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  #item-input{
+    flex:1;
+    min-width:0;
+  }
+  #qty-input{
+    width:76px;
+    flex-shrink:0;
+  }
+  #item-input, #qty-input{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:16px;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    background:var(--card);
+    color:var(--ink);
+    outline:none;
+  }
+  #item-input:focus, #qty-input:focus{
+    border-color:var(--leaf);
+  }
+  #item-input::placeholder, #qty-input::placeholder{
+    color:#a8a595;
+  }
+  .add-btn{
+    flex-shrink:0;
+    width:46px;
+    border:none;
+    border-radius:10px;
+    background:var(--leaf-deep);
+    color:#fff;
+    font-size:22px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:background .15s;
+  }
+  .add-btn:hover{background:var(--leaf);}
+  .add-btn:active{transform:scale(0.96);}
+
+  /* Selettore categoria */
+  #cat-picker{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:2px;
+    margin-bottom:24px;
+    scrollbar-width:none;
+  }
+  #cat-picker::-webkit-scrollbar{display:none;}
+  .cat-chip{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    background:var(--chip-bg);
+    border:1.5px solid transparent;
+    border-radius:20px;
+    padding:6px 12px 6px 10px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:border-color .15s, color .15s;
+  }
+  .cat-chip .dot{
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--chip-color, var(--ink-soft));
+    flex-shrink:0;
+  }
+  .cat-chip.active{
+    border-color:var(--chip-color, var(--leaf));
+    color:var(--ink);
+  }
+
+  .list-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+    min-height:18px;
+  }
+  .clear-btn{
+    background:none;
+    border:none;
+    color:var(--danger);
+    font-family:inherit;
+    font-size:12.5px;
+    cursor:pointer;
+    padding:2px 0;
+    display:none;
+    align-items:center;
+  }
+
+  ul#list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+  .cat-section{
+    display:flex;
+    flex-direction:column;
+  }
+  .cat-heading{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.3px;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+    padding-left:2px;
+  }
+  .cat-heading .dot{
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--chip-color);
+    flex-shrink:0;
+  }
+
+  ul.sublist{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:13px 12px;
+  }
+  .check{
+    flex-shrink:0;
+    width:24px;height:24px;
+    border-radius:50%;
+    border:1.8px solid var(--chip-color, var(--leaf));
+    background:none;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    padding:0;
+    transition:background .15s, border-color .15s;
+  }
+  .item.done .check{
+    background:var(--chip-color, var(--leaf));
+  }
+  .check svg{width:14px;height:14px;}
+
+  .label{
+    flex:1;
+    min-width:0;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    font-size:16.5px;
+  }
+  .name{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .qty{
+    flex-shrink:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    background:var(--paper);
+    padding:2px 8px;
+    border-radius:20px;
+  }
+  .item.done .name{
+    color:var(--ink-soft);
+    text-decoration:line-through;
+    text-decoration-color:var(--ink-soft);
+  }
+  .item.done .qty{
+    opacity:0.6;
+  }
+
+  .del{
+    flex-shrink:0;
+    width:26px;height:26px;
+    border:none;
+    background:none;
+    color:#c2bfb2;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+  }
+  .del:hover{color:var(--danger);}
+  .del svg{width:14px;height:14px;}
+
+  #empty-state{
+    display:none;
+    text-align:center;
+    padding:48px 20px;
+    color:var(--ink-soft);
+  }
+  #empty-state .icon{
+    font-size:30px;
+    margin-bottom:10px;
+    opacity:0.5;
+  }
+  #empty-state p{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:14px;
+    margin:0;
+  }
+
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#181a15;
+      --ink:#ece9e0;
+      --ink-soft:#9b9a8d;
+      --leaf:#7fa876;
+      --leaf-deep:#a7c99c;
+      --line:#33352c;
+      --card:#212319;
+      --danger:#d9776a;
+      --chip-bg:#212319;
+    }
+    :root:not([data-theme="light"]) .add-btn{ color:#181a15; }
+  }
+  :root[data-theme="dark"]{
+    --paper:#181a15;
+    --ink:#ece9e0;
+    --ink-soft:#9b9a8d;
+    --leaf:#7fa876;
+    --leaf-deep:#a7c99c;
+    --line:#33352c;
+    --card:#212319;
+    --danger:#d9776a;
+    --chip-bg:#212319;
+  }
+  :root[data-theme="dark"] .add-btn{ color:#181a15; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Spesa</h1>
+      <div class="status"><span id="status-dot"></span>sincronizzata</div>
+    </header>
+    <p class="subtitle">Condivisa in tempo reale su tutti i dispositivi</p>
+
+    <form id="add-form">
+      <input id="item-input" type="text" placeholder="Aggiungi un prodotto…" autocomplete="off" required>
+      <input id="qty-input" type="text" placeholder="qtà" autocomplete="off">
+      <button type="submit" class="add-btn" aria-label="Aggiungi">+</button>
+    </form>
+
+    <div id="cat-picker"></div>
+
+    <div class="list-header">
+      <span id="count"></span>
+      <button id="clear-done" class="clear-btn">Rimuovi presi</button>
+    </div>
+
+    <ul id="list"></ul>
+
+    <div id="empty-state">
+      <div class="icon">🧺</div>
+      <p>Il carrello è vuoto. Aggiungi il primo prodotto.</p>
+    </div>
+  </div>
+</body>
+</html>
