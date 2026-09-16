@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Spesa</title>
+<title>Lista Spesa</title>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
-    getDatabase, ref, onValue, push, update, remove
+    getDatabase, ref, onValue, push, update, remove, set
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
@@ -23,25 +23,42 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // ---- Categorie ----
-  const CATEGORIES = [
-    { id: "fresco",     label: "Fresco",         color: "#5c8a5c" },
-    { id: "dispensa",   label: "Dispensa",       color: "#b98a3d" },
-    { id: "surgelati",  label: "Surgelati",      color: "#4f7d9c" },
-    { id: "casa",       label: "Casa e cura",    color: "#8a6a9c" },
-    { id: "bevande",    label: "Bevande",        color: "#a25c5c" },
-    { id: "altro",      label: "Altro",          color: "#8a8578" },
-  ];
-  const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+  // ---- Categorie di default (usate solo se il gruppo non ha ancora categorie proprie) ----
+  const DEFAULT_CATEGORIES = {
+    fresco:    { label: "Fresco",      color: "#5c8a5c", icon: "🥬", order: 0 },
+    dispensa:  { label: "Dispensa",    color: "#b98a3d", icon: "🥫", order: 1 },
+    surgelati: { label: "Surgelati",   color: "#4f7d9c", icon: "❄️", order: 2 },
+    casa:      { label: "Casa e cura", color: "#8a6a9c", icon: "🧴", order: 3 },
+    bevande:   { label: "Bevande",     color: "#a25c5c", icon: "🧃", order: 4 },
+    altro:     { label: "Altro",       color: "#8a8578", icon: "🛒", order: 5 },
+  };
   const DEFAULT_CAT = "altro";
-  let activeCategory = DEFAULT_CAT;
+
+  // Dizionario per suggerimento automatico categoria in base al nome prodotto
+  const AUTO_CAT_RULES = [
+    { cat: "fresco", words: ["latte","yogurt","uova","uovo","burro","formaggio","mozzarella","ricotta","prosciutto","salame","carne","pollo","manzo","maiale","pesce","salmone","insalata","lattuga","pomodor","pomodoro","zucchin","carota","carote","cipolla","patata","patate","mela","mele","banana","pera","pere","arancia","arance","limone","frutta","verdura","spinaci","broccol","basilico","panna","mascarpone","speck","bresaola","tofu"] },
+    { cat: "surgelati", words: ["surgelat","gelato","ghiacciol","pesce surgelato","piselli surgelati","patatine surgelate","bastoncini"] },
+    { cat: "dispensa", words: ["pasta","riso","pane","farina","zucchero","sale","olio","aceto","caffè","caffe","the","tè","biscott","cracker","fette biscottate","legumi","fagioli","lenticchie","ceci","passata","sugo","conserva","tonno in scatola","scatola","cereali","marmellata","miele","cioccolat","nutella","fette","piadine","grissini","brodo","dado"] },
+    { cat: "casa", words: ["detersivo","detergente","sapone","shampoo","bagnoschiuma","carta igienica","scottex","fazzolett","spugn","candeggina","ammorbidente","dentifricio","spazzolino","deodorante","pannolin","assorbent","sacchetti","pile","lampadin"] },
+    { cat: "bevande", words: ["acqua","vino","birra","succo","bibita","coca","cola","aranciata","tè freddo","the freddo","spumante","prosecco","liquore"] },
+  ];
+  function suggestCategory(name, categories) {
+    const n = name.toLowerCase();
+    for (const rule of AUTO_CAT_RULES) {
+      if (categories[rule.cat] && rule.words.some(w => n.includes(w))) return rule.cat;
+    }
+    return null;
+  }
+
+  // Palette per la creazione rapida di nuove categorie
+  const COLOR_PALETTE = ["#5c8a5c","#b98a3d","#4f7d9c","#8a6a9c","#a25c5c","#8a8578","#3d7a7d","#a67c3d","#5c6ba2","#a25c8a","#6a8a3d","#7d5c4f"];
 
   // ---- Normalizzazione codice gruppo ----
   function normalizeGroup(raw) {
     return raw
       .trim()
       .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // rimuove accenti
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
   }
@@ -54,12 +71,57 @@
   const loginError = document.getElementById("login-error");
   const groupLabel = document.getElementById("group-label");
   const switchGroupBtn = document.getElementById("switch-group");
+  const recentGroupsEl = document.getElementById("recent-groups");
 
+  let currentGroup = null;
   let listRef = null;
+  let catRef = null;
   let items = {};
-  let unsubscribe = null;
+  let categories = {};
+  let hasOwnCategories = false;
+  let unsubItems = null;
+  let unsubCats = null;
+  let activeCategory = DEFAULT_CAT;
+  let editingId = null;
+  let collapsed = {};
 
   const STORAGE_KEY = "spesa_gruppo";
+  const RECENTS_KEY = "spesa_gruppi_recenti";
+  const COLLAPSE_KEY_PREFIX = "spesa_collapsed_";
+
+  function getRecents() {
+    try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]"); }
+    catch { return []; }
+  }
+  function addRecent(g) {
+    let list = getRecents().filter(x => x !== g);
+    list.unshift(g);
+    list = list.slice(0, 5);
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list));
+  }
+  function renderRecents() {
+    const recents = getRecents();
+    recentGroupsEl.innerHTML = "";
+    if (recents.length === 0) {
+      recentGroupsEl.style.display = "none";
+      return;
+    }
+    recentGroupsEl.style.display = "flex";
+    for (const g of recents) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "recent-chip";
+      btn.textContent = g;
+      btn.addEventListener("click", () => enterGroup(g));
+      recentGroupsEl.appendChild(btn);
+    }
+  }
+
+  function orderedCategories() {
+    return Object.entries(categories)
+      .sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0))
+      .map(([id, c]) => ({ id, ...c }));
+  }
 
   function enterGroup(groupId) {
     const clean = normalizeGroup(groupId);
@@ -69,13 +131,38 @@
       return;
     }
     localStorage.setItem(STORAGE_KEY, clean);
+    addRecent(clean);
+    currentGroup = clean;
     listRef = ref(db, "spesa/" + clean);
+    catRef = ref(db, "categorie/" + clean);
     groupLabel.textContent = clean;
     loginScreen.style.display = "none";
     appScreen.style.display = "block";
 
-    if (unsubscribe) unsubscribe();
-    unsubscribe = onValue(listRef, (snapshot) => {
+    collapsed = {};
+    try { collapsed = JSON.parse(localStorage.getItem(COLLAPSE_KEY_PREFIX + clean) || "{}"); } catch {}
+
+    if (unsubItems) unsubItems();
+    if (unsubCats) unsubCats();
+
+    unsubCats = onValue(catRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        categories = val;
+        hasOwnCategories = true;
+      } else {
+        categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+        hasOwnCategories = false;
+      }
+      if (!categories[activeCategory]) {
+        activeCategory = orderedCategories()[0]?.id || DEFAULT_CAT;
+      }
+      renderCatPicker();
+      renderCatManager();
+      render();
+    });
+
+    unsubItems = onValue(listRef, (snapshot) => {
       items = snapshot.val() || {};
       render();
       statusDot.classList.remove("offline");
@@ -95,10 +182,11 @@
     appScreen.style.display = "none";
     loginScreen.style.display = "flex";
     groupInput.value = "";
+    renderRecents();
     groupInput.focus();
   });
 
-  // Auto-login se già salvato
+  renderRecents();
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     enterGroup(saved);
@@ -116,20 +204,148 @@
   const countEl = document.getElementById("count");
   const clearBtn = document.getElementById("clear-done");
   const statusDot = document.getElementById("status-dot");
+  const manageCatsBtn = document.getElementById("manage-cats-btn");
+  const catManagerOverlay = document.getElementById("cat-manager-overlay");
+  const catManagerList = document.getElementById("cat-manager-list");
+  const catManagerClose = document.getElementById("cat-manager-close");
+  const newCatForm = document.getElementById("new-cat-form");
+  const newCatName = document.getElementById("new-cat-name");
+  const newCatColors = document.getElementById("new-cat-colors");
+  const newCatEmoji = document.getElementById("new-cat-emoji");
+  const editOverlay = document.getElementById("edit-overlay");
+  const editForm = document.getElementById("edit-form");
+  const editName = document.getElementById("edit-name");
+  const editQty = document.getElementById("edit-qty");
+  const editCatPicker = document.getElementById("edit-cat-picker");
+  const editClose = document.getElementById("edit-close");
+  const editDelete = document.getElementById("edit-delete");
+  const suggestBanner = document.getElementById("suggest-banner");
 
-  for (const cat of CATEGORIES) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "cat-chip" + (cat.id === activeCategory ? " active" : "");
-    chip.dataset.cat = cat.id;
-    chip.style.setProperty("--chip-color", cat.color);
-    chip.innerHTML = `<span class="dot"></span>${cat.label}`;
-    chip.addEventListener("click", () => {
-      activeCategory = cat.id;
-      catPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === cat.id));
-    });
-    catPicker.appendChild(chip);
+  let selectedNewCatColor = COLOR_PALETTE[0];
+  let editSelectedCat = null;
+
+  function buildColorSwatches(container, onPick, selected) {
+    container.innerHTML = "";
+    for (const color of COLOR_PALETTE) {
+      const sw = document.createElement("button");
+      sw.type = "button";
+      sw.className = "swatch" + (color === selected ? " selected" : "");
+      sw.style.background = color;
+      sw.addEventListener("click", () => {
+        container.querySelectorAll(".swatch").forEach(s => s.classList.remove("selected"));
+        sw.classList.add("selected");
+        onPick(color);
+      });
+      container.appendChild(sw);
+    }
   }
+  buildColorSwatches(newCatColors, (c) => selectedNewCatColor = c, selectedNewCatColor);
+
+  function renderCatPicker() {
+    catPicker.innerHTML = "";
+    for (const cat of orderedCategories()) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cat-chip" + (cat.id === activeCategory ? " active" : "");
+      chip.dataset.cat = cat.id;
+      chip.style.setProperty("--chip-color", cat.color);
+      chip.innerHTML = `<span class="chip-emoji">${cat.icon || "🛒"}</span>${cat.label}`;
+      chip.addEventListener("click", () => {
+        activeCategory = cat.id;
+        catPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === cat.id));
+        suggestBanner.style.display = "none";
+      });
+      catPicker.appendChild(chip);
+    }
+  }
+
+  // ---- Gestione categorie (aggiungi/modifica/elimina) ----
+  manageCatsBtn.addEventListener("click", () => {
+    renderCatManager();
+    catManagerOverlay.style.display = "flex";
+  });
+  catManagerClose.addEventListener("click", () => catManagerOverlay.style.display = "none");
+  catManagerOverlay.addEventListener("click", (e) => { if (e.target === catManagerOverlay) catManagerOverlay.style.display = "none"; });
+
+  function ensureOwnCategories() {
+    if (!hasOwnCategories) {
+      hasOwnCategories = true;
+      set(catRef, categories);
+    }
+  }
+
+  function renderCatManager() {
+    catManagerList.innerHTML = "";
+    for (const cat of orderedCategories()) {
+      const row = document.createElement("div");
+      row.className = "cat-manager-row";
+      row.innerHTML = `
+        <span class="cm-dot" style="background:${cat.color}"></span>
+        <span class="cm-emoji">${cat.icon || "🛒"}</span>
+        <input class="cm-name" type="text" value="${cat.label.replace(/"/g,'&quot;')}" data-id="${cat.id}">
+        <button type="button" class="cm-del" data-id="${cat.id}" aria-label="Elimina categoria">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      `;
+      catManagerList.appendChild(row);
+    }
+
+    catManagerList.querySelectorAll(".cm-name").forEach(inp => {
+      inp.addEventListener("change", () => {
+        const id = inp.dataset.id;
+        const val = inp.value.trim();
+        if (!val) { inp.value = categories[id].label; return; }
+        ensureOwnCategories();
+        update(ref(db, `categorie/${currentGroup}/${id}`), { label: val });
+      });
+    });
+
+    catManagerList.querySelectorAll(".cm-del").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        if (Object.keys(categories).length <= 1) {
+          alert("Deve restare almeno una categoria.");
+          return;
+        }
+        const inUse = Object.values(items).some(it => it.cat === id);
+        if (inUse && !confirm("Alcuni prodotti usano questa categoria e verranno spostati in un'altra. Continuare?")) {
+          return;
+        }
+        ensureOwnCategories();
+        const fallback = orderedCategories().find(c => c.id !== id)?.id;
+        const updates = {};
+        for (const [itemId, it] of Object.entries(items)) {
+          if (it.cat === id) updates[`spesa/${currentGroup}/${itemId}/cat`] = fallback;
+        }
+        updates[`categorie/${currentGroup}/${id}`] = null;
+        update(ref(db), updates);
+      });
+    });
+  }
+
+  newCatForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const label = newCatName.value.trim();
+    if (!label) return;
+    ensureOwnCategories();
+    const id = "c" + Date.now();
+    const maxOrder = Math.max(-1, ...Object.values(categories).map(c => c.order ?? 0));
+    const icon = newCatEmoji.value.trim() || "🛒";
+    set(ref(db, `categorie/${currentGroup}/${id}`), {
+      label, color: selectedNewCatColor, icon, order: maxOrder + 1
+    });
+    newCatName.value = "";
+    newCatEmoji.value = "";
+  });
+
+  // ---- Render lista ----
+  function toggleCollapse(catId) {
+    collapsed[catId] = !collapsed[catId];
+    localStorage.setItem(COLLAPSE_KEY_PREFIX + currentGroup, JSON.stringify(collapsed));
+    render();
+  }
+
+  let dragItemId = null;
 
   function render() {
     const entries = Object.entries(items);
@@ -138,8 +354,9 @@
     emptyState.style.display = entries.length === 0 ? "block" : "none";
 
     const groups = {};
+    const catIds = new Set(Object.keys(categories));
     for (const [id, item] of entries) {
-      const catId = CAT_MAP[item.cat] ? item.cat : DEFAULT_CAT;
+      const catId = catIds.has(item.cat) ? item.cat : (orderedCategories()[0]?.id || DEFAULT_CAT);
       (groups[catId] ||= []).push([id, item]);
     }
     for (const catId in groups) {
@@ -148,26 +365,68 @@
 
     let remaining = 0;
 
-    for (const cat of CATEGORIES) {
+    for (const cat of orderedCategories()) {
       const group = groups[cat.id];
       if (!group || group.length === 0) continue;
+
+      const doneCount = group.filter(([, it]) => it.done).length;
+      const totalCount = group.length;
+      remaining += totalCount - doneCount;
 
       const section = document.createElement("li");
       section.className = "cat-section";
 
-      const heading = document.createElement("div");
+      const heading = document.createElement("button");
+      heading.type = "button";
       heading.className = "cat-heading";
-      heading.innerHTML = `<span class="dot" style="--chip-color:${cat.color}"></span>${cat.label}`;
+      heading.innerHTML = `
+        <span class="cat-heading-left">
+          <span class="chip-emoji">${cat.icon || "🛒"}</span>
+          <span>${cat.label}</span>
+          <span class="cat-count" style="--chip-color:${cat.color}">${totalCount - doneCount}</span>
+        </span>
+        <svg class="chevron${collapsed[cat.id] ? " collapsed" : ""}" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      `;
+      heading.addEventListener("click", () => toggleCollapse(cat.id));
       section.appendChild(heading);
 
       const sublist = document.createElement("ul");
-      sublist.className = "sublist";
+      sublist.className = "sublist" + (collapsed[cat.id] ? " hidden" : "");
 
       for (const [id, item] of group) {
-        if (!item.done) remaining++;
-
         const li = document.createElement("li");
         li.className = "item" + (item.done ? " done" : "");
+        li.draggable = true;
+        li.dataset.id = id;
+        li.dataset.cat = cat.id;
+
+        li.addEventListener("dragstart", () => {
+          dragItemId = id;
+          li.classList.add("dragging");
+        });
+        li.addEventListener("dragend", () => {
+          li.classList.remove("dragging");
+        });
+        li.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          const rect = li.getBoundingClientRect();
+          const before = (e.clientY - rect.top) < rect.height / 2;
+          li.classList.toggle("drag-over-top", before);
+          li.classList.toggle("drag-over-bottom", !before);
+        });
+        li.addEventListener("dragleave", () => {
+          li.classList.remove("drag-over-top", "drag-over-bottom");
+        });
+        li.addEventListener("drop", (e) => {
+          e.preventDefault();
+          li.classList.remove("drag-over-top", "drag-over-bottom");
+          if (!dragItemId || dragItemId === id) return;
+          reorder(dragItemId, id, cat.id);
+        });
+
+        const drag = document.createElement("span");
+        drag.className = "drag-handle";
+        drag.innerHTML = '<svg viewBox="0 0 20 20" fill="none"><circle cx="7" cy="5" r="1.3" fill="currentColor"/><circle cx="13" cy="5" r="1.3" fill="currentColor"/><circle cx="7" cy="10" r="1.3" fill="currentColor"/><circle cx="13" cy="10" r="1.3" fill="currentColor"/><circle cx="7" cy="15" r="1.3" fill="currentColor"/><circle cx="13" cy="15" r="1.3" fill="currentColor"/></svg>';
 
         const check = document.createElement("button");
         check.className = "check";
@@ -176,8 +435,9 @@
         check.innerHTML = item.done
           ? '<svg viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
           : "";
-        check.addEventListener("click", () => {
-          update(ref(db, `spesa/${groupLabel.textContent}/${id}`), { done: !item.done });
+        check.addEventListener("click", (e) => {
+          e.stopPropagation();
+          update(ref(db, `spesa/${currentGroup}/${id}`), { done: !item.done });
         });
 
         const label = document.createElement("span");
@@ -192,15 +452,18 @@
           qty.textContent = item.qty;
           label.appendChild(qty);
         }
+        label.addEventListener("click", () => openEdit(id, item));
 
         const del = document.createElement("button");
         del.className = "del";
         del.setAttribute("aria-label", "Rimuovi");
         del.innerHTML = '<svg viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-        del.addEventListener("click", () => {
-          remove(ref(db, `spesa/${groupLabel.textContent}/${id}`));
+        del.addEventListener("click", (e) => {
+          e.stopPropagation();
+          remove(ref(db, `spesa/${currentGroup}/${id}`));
         });
 
+        li.appendChild(drag);
         li.appendChild(check);
         li.appendChild(label);
         li.appendChild(del);
@@ -212,11 +475,105 @@
     }
 
     countEl.textContent = remaining === 0
-      ? (entries.length ? "Tutto preso" : "")
+      ? (entries.length ? "Tutto preso ✓" : "")
       : remaining === 1 ? "1 da prendere" : remaining + " da prendere";
 
     clearBtn.style.display = entries.some(([, it]) => it.done) ? "inline-flex" : "none";
   }
+
+  function reorder(draggedId, targetId, targetCatId) {
+    const targetItem = items[targetId];
+    const draggedItem = items[draggedId];
+    if (!targetItem || !draggedItem) return;
+
+    const groupEntries = Object.entries(items)
+      .filter(([, it]) => (categories[it.cat] ? it.cat : DEFAULT_CAT) === targetCatId)
+      .sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+
+    const withoutDragged = groupEntries.filter(([id]) => id !== draggedId);
+    const targetIdx = withoutDragged.findIndex(([id]) => id === targetId);
+    withoutDragged.splice(targetIdx, 0, [draggedId, draggedItem]);
+
+    const updates = {};
+    withoutDragged.forEach(([id], idx) => {
+      updates[`spesa/${currentGroup}/${id}/order`] = idx;
+    });
+    if (draggedItem.cat !== targetCatId) {
+      updates[`spesa/${currentGroup}/${draggedId}/cat`] = targetCatId;
+    }
+    update(ref(db), updates);
+  }
+
+  // ---- Modifica prodotto ----
+  function openEdit(id, item) {
+    editingId = id;
+    editName.value = item.name;
+    editQty.value = item.qty || "";
+    editSelectedCat = categories[item.cat] ? item.cat : (orderedCategories()[0]?.id);
+    renderEditCatPicker();
+    editOverlay.style.display = "flex";
+    setTimeout(() => editName.focus(), 50);
+  }
+  function closeEdit() {
+    editOverlay.style.display = "none";
+    editingId = null;
+  }
+  editClose.addEventListener("click", closeEdit);
+  editOverlay.addEventListener("click", (e) => { if (e.target === editOverlay) closeEdit(); });
+
+  function renderEditCatPicker() {
+    editCatPicker.innerHTML = "";
+    for (const cat of orderedCategories()) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cat-chip" + (cat.id === editSelectedCat ? " active" : "");
+      chip.style.setProperty("--chip-color", cat.color);
+      chip.innerHTML = `<span class="chip-emoji">${cat.icon || "🛒"}</span>${cat.label}`;
+      chip.addEventListener("click", () => {
+        editSelectedCat = cat.id;
+        editCatPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+      });
+      editCatPicker.appendChild(chip);
+    }
+  }
+
+  editForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!editingId) return;
+    const name = editName.value.trim();
+    if (!name) return;
+    update(ref(db, `spesa/${currentGroup}/${editingId}`), {
+      name, qty: editQty.value.trim(), cat: editSelectedCat
+    });
+    closeEdit();
+  });
+  editDelete.addEventListener("click", () => {
+    if (!editingId) return;
+    remove(ref(db, `spesa/${currentGroup}/${editingId}`));
+    closeEdit();
+  });
+
+  // ---- Aggiunta prodotto con suggerimento categoria ----
+  let suggestedCatId = null;
+  input.addEventListener("input", () => {
+    const s = suggestCategory(input.value.trim(), categories);
+    if (s && s !== activeCategory) {
+      suggestedCatId = s;
+      const cat = categories[s];
+      suggestBanner.innerHTML = `Suggerimento: <b>${cat.icon || ""} ${cat.label}</b>`;
+      suggestBanner.style.display = "flex";
+    } else {
+      suggestBanner.style.display = "none";
+      suggestedCatId = null;
+    }
+  });
+  suggestBanner.addEventListener("click", () => {
+    if (!suggestedCatId) return;
+    activeCategory = suggestedCatId;
+    catPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === suggestedCatId));
+    suggestBanner.style.display = "none";
+  });
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -227,13 +584,14 @@
     push(listRef, { name, qty, done: false, order, cat: activeCategory });
     input.value = "";
     qtyInput.value = "";
+    suggestBanner.style.display = "none";
     input.focus();
   });
 
   clearBtn.addEventListener("click", () => {
     const updates = {};
     for (const [id, item] of Object.entries(items)) {
-      if (item.done) updates[`spesa/${groupLabel.textContent}/${id}`] = null;
+      if (item.done) updates[`spesa/${currentGroup}/${id}`] = null;
     }
     update(ref(db), updates);
   });
@@ -278,21 +636,46 @@
   }
   .login-box{
     width:100%;
-    max-width:340px;
+    max-width:360px;
     text-align:center;
   }
+  .login-icon{
+    font-size:40px;
+    margin-bottom:10px;
+  }
   .login-box h1{
-    font-size:22px;
+    font-size:23px;
     font-weight:600;
-    margin:0 0 6px;
+    margin:0 0 10px;
     color:var(--ink);
   }
   .login-box p{
     font-size:14px;
     color:var(--ink-soft);
-    margin:0 0 28px;
-    line-height:1.5;
+    margin:0 0 22px;
+    line-height:1.55;
   }
+  .login-explain{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    text-align:left;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:22px;
+  }
+  .login-explain-row{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:13px;
+    color:var(--ink);
+    line-height:1.4;
+  }
+  .login-explain-row .ico{ font-size:17px; flex-shrink:0; line-height:1.3; }
+  .login-explain-row b{ font-weight:600; }
   #login-form{
     display:flex;
     flex-direction:column;
@@ -334,6 +717,23 @@
     color:var(--danger);
     margin-top:4px;
   }
+  #recent-groups{
+    display:none;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:center;
+    margin-top:16px;
+  }
+  .recent-chip{
+    font-size:12.5px;
+    padding:6px 12px;
+    border-radius:20px;
+    border:1.5px solid var(--line);
+    background:var(--chip-bg);
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .recent-chip:hover{ border-color:var(--accent); color:var(--ink); }
 
   /* ---- App ---- */
   #app-screen{ display:none; width:100%; }
@@ -383,7 +783,7 @@
   #add-form{
     display:flex;
     gap:8px;
-    margin:22px 0 12px;
+    margin:22px 0 8px;
   }
   #item-input{ flex:1; min-width:0; }
   #qty-input{ width:72px; flex-shrink:0; }
@@ -416,13 +816,35 @@
   .add-btn:hover{ opacity:0.88; }
   .add-btn:active{ transform:scale(0.96); }
 
+  #suggest-banner{
+    display:none;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    background:var(--chip-bg);
+    border:1px dashed var(--line);
+    border-radius:10px;
+    padding:8px 12px;
+    margin-bottom:14px;
+    cursor:pointer;
+  }
+  #suggest-banner:hover{ border-color:var(--accent); }
+
+  #cat-picker-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:22px;
+  }
   #cat-picker{
     display:flex;
     gap:6px;
     overflow-x:auto;
     padding-bottom:2px;
-    margin-bottom:24px;
     scrollbar-width:none;
+    flex:1;
+    min-width:0;
   }
   #cat-picker::-webkit-scrollbar{display:none;}
   .cat-chip{
@@ -440,16 +862,25 @@
     white-space:nowrap;
     transition:border-color .15s, color .15s;
   }
-  .cat-chip .dot{
-    width:8px;height:8px;
-    border-radius:50%;
-    background:var(--chip-color, var(--ink-soft));
-    flex-shrink:0;
-  }
+  .chip-emoji{ font-size:13px; line-height:1; flex-shrink:0; }
   .cat-chip.active{
     border-color:var(--chip-color, var(--accent));
     color:var(--ink);
   }
+  #manage-cats-btn{
+    flex-shrink:0;
+    width:32px;height:32px;
+    border-radius:50%;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink-soft);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #manage-cats-btn:hover{ border-color:var(--accent); color:var(--ink); }
+  #manage-cats-btn svg{ width:15px; height:15px; }
 
   .list-header{
     display:flex;
@@ -478,26 +909,42 @@
     padding:0;
     display:flex;
     flex-direction:column;
-    gap:20px;
+    gap:18px;
   }
   .cat-section{ display:flex; flex-direction:column; }
   .cat-heading{
     display:flex;
     align-items:center;
-    gap:7px;
-    font-size:12px;
+    justify-content:space-between;
+    width:100%;
+    font-size:12.5px;
     font-weight:600;
     letter-spacing:0.2px;
     color:var(--ink-soft);
     margin-bottom:8px;
-    padding-left:2px;
+    padding:4px 2px;
+    background:none;
+    border:none;
+    font-family:inherit;
+    cursor:pointer;
   }
-  .cat-heading .dot{
-    width:8px;height:8px;
-    border-radius:50%;
+  .cat-heading-left{
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  .cat-count{
+    font-size:11px;
+    font-weight:600;
+    color:#fff;
     background:var(--chip-color);
-    flex-shrink:0;
+    border-radius:20px;
+    padding:1px 7px;
+    min-width:16px;
+    text-align:center;
   }
+  .chevron{ width:14px; height:14px; color:var(--ink-soft); transition:transform .2s; flex-shrink:0; }
+  .chevron.collapsed{ transform:rotate(-90deg); }
 
   ul.sublist{
     list-style:none;
@@ -506,16 +953,32 @@
     display:flex;
     flex-direction:column;
     gap:6px;
+    overflow:hidden;
   }
+  ul.sublist.hidden{ display:none; }
   .item{
     display:flex;
     align-items:center;
-    gap:12px;
+    gap:8px;
     background:var(--card);
     border:1px solid var(--line);
     border-radius:10px;
-    padding:13px 12px;
+    padding:12px 12px 12px 6px;
+    transition:border-color .12s;
   }
+  .item.dragging{ opacity:0.4; }
+  .item.drag-over-top{ border-top:2px solid var(--accent); }
+  .item.drag-over-bottom{ border-bottom:2px solid var(--accent); }
+  .drag-handle{
+    flex-shrink:0;
+    width:18px;height:24px;
+    color:#d4d1c8;
+    cursor:grab;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .drag-handle svg{ width:14px; height:14px; }
   .check{
     flex-shrink:0;
     width:24px;height:24px;
@@ -540,6 +1003,7 @@
     align-items:baseline;
     gap:8px;
     font-size:15.5px;
+    cursor:pointer;
   }
   .name{
     overflow:hidden;
@@ -592,6 +1056,198 @@
     margin:0;
   }
 
+  /* ---- Overlay comuni (gestione categorie / modifica prodotto) ---- */
+  .overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(20,20,18,0.4);
+    align-items:flex-end;
+    justify-content:center;
+    z-index:50;
+  }
+  @media (min-width:520px){
+    .overlay{ align-items:center; }
+  }
+  .sheet{
+    width:100%;
+    max-width:440px;
+    max-height:82vh;
+    overflow-y:auto;
+    background:var(--surface);
+    border-radius:20px 20px 0 0;
+    padding:22px 18px 28px;
+  }
+  @media (min-width:520px){
+    .sheet{ border-radius:18px; }
+  }
+  .sheet-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:16px;
+  }
+  .sheet-header h2{
+    font-size:17px;
+    font-weight:600;
+    margin:0;
+  }
+  .sheet-close{
+    width:28px;height:28px;
+    border-radius:50%;
+    border:none;
+    background:var(--chip-bg);
+    color:var(--ink-soft);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .sheet-close svg{ width:13px; height:13px; }
+
+  /* Category manager */
+  #cat-manager-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .cat-manager-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 10px;
+  }
+  .cm-dot{ width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+  .cm-emoji{ font-size:15px; flex-shrink:0; }
+  .cm-name{
+    flex:1;
+    min-width:0;
+    border:none;
+    background:none;
+    font-size:14.5px;
+    color:var(--ink);
+    outline:none;
+    font-family:inherit;
+    padding:4px 0;
+  }
+  .cm-del{
+    flex-shrink:0;
+    width:26px;height:26px;
+    border:none;
+    background:none;
+    color:#cfccc3;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .cm-del:hover{ color:var(--danger); }
+  .cm-del svg{ width:13px; height:13px; }
+
+  #new-cat-form{
+    border-top:1px solid var(--line);
+    padding-top:16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .new-cat-row{
+    display:flex;
+    gap:8px;
+  }
+  #new-cat-emoji{
+    width:52px;
+    flex-shrink:0;
+    text-align:center;
+  }
+  #new-cat-name, #new-cat-emoji{
+    font-size:15px;
+    padding:11px 12px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    background:var(--paper);
+    color:var(--ink);
+    outline:none;
+  }
+  #new-cat-name:focus, #new-cat-emoji:focus{ border-color:var(--accent); }
+  #new-cat-colors{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .swatch{
+    width:26px;height:26px;
+    border-radius:50%;
+    border:2px solid transparent;
+    cursor:pointer;
+    padding:0;
+  }
+  .swatch.selected{ border-color:var(--ink); }
+  .new-cat-submit{
+    font-size:14.5px;
+    font-weight:600;
+    padding:12px;
+    border:none;
+    border-radius:10px;
+    background:var(--accent);
+    color:#fff;
+    cursor:pointer;
+  }
+
+  /* Edit sheet */
+  #edit-form{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  #edit-name, #edit-qty{
+    font-size:16px;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    background:var(--paper);
+    color:var(--ink);
+    outline:none;
+    width:100%;
+  }
+  #edit-name:focus, #edit-qty:focus{ border-color:var(--accent); }
+  #edit-cat-picker{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    margin:2px 0 6px;
+  }
+  .edit-actions{
+    display:flex;
+    gap:8px;
+    margin-top:6px;
+  }
+  .edit-save{
+    flex:1;
+    font-size:14.5px;
+    font-weight:600;
+    padding:13px;
+    border:none;
+    border-radius:10px;
+    background:var(--accent);
+    color:#fff;
+    cursor:pointer;
+  }
+  .edit-delete-btn{
+    font-size:14.5px;
+    font-weight:600;
+    padding:13px 16px;
+    border:1.5px solid var(--danger);
+    border-radius:10px;
+    background:none;
+    color:var(--danger);
+    cursor:pointer;
+  }
+
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --paper:#1c1c1a;
@@ -605,7 +1261,9 @@
       --chip-bg:#232320;
     }
     :root:not([data-theme="light"]) .add-btn,
-    :root:not([data-theme="light"]) .login-btn{ color:#141412; }
+    :root:not([data-theme="light"]) .login-btn,
+    :root:not([data-theme="light"]) .new-cat-submit,
+    :root:not([data-theme="light"]) .edit-save{ color:#141412; }
   }
   :root[data-theme="dark"]{
     --paper:#1c1c1a;
@@ -619,21 +1277,41 @@
     --chip-bg:#232320;
   }
   :root[data-theme="dark"] .add-btn,
-  :root[data-theme="dark"] .login-btn{ color:#141412; }
+  :root[data-theme="dark"] .login-btn,
+  :root[data-theme="dark"] .new-cat-submit,
+  :root[data-theme="dark"] .edit-save{ color:#141412; }
 </style>
 </head>
 <body>
 
   <div id="login-screen">
     <div class="login-box">
-      <h1>Spesa</h1>
-      <p>Inserisci il codice del tuo gruppo per accedere alla lista condivisa. Se non esiste ancora, viene creata al volo.</p>
+      <div class="login-icon">🛒</div>
+      <h1>Lista Spesa</h1>
+      <p>Crea o entra in una lista condivisa con la tua famiglia o coinquilini.</p>
+
+      <div class="login-explain">
+        <div class="login-explain-row">
+          <span class="ico">🔑</span>
+          <span>Il <b>codice gruppo</b> è come una chiave: scegline uno (es. "casa-rossi") e condividilo con chi vuoi far accedere alla stessa lista.</span>
+        </div>
+        <div class="login-explain-row">
+          <span class="ico">⚡</span>
+          <span>Chi inserisce <b>lo stesso codice</b> vede e modifica la lista in tempo reale, anche da telefoni diversi.</span>
+        </div>
+        <div class="login-explain-row">
+          <span class="ico">✨</span>
+          <span>Se il codice non esiste ancora, viene <b>creato al volo</b> alla prima apertura.</span>
+        </div>
+      </div>
+
       <form id="login-form">
         <input id="group-input" type="text" placeholder="es. casa-rossi" autocomplete="off" required>
-        <button type="submit" class="login-btn">Entra</button>
+        <button type="submit" class="login-btn">Entra nella lista</button>
       </form>
       <p class="login-error" id="login-error"></p>
-      <p class="login-hint">Chi conosce lo stesso codice vede e modifica la stessa lista, in tempo reale.</p>
+
+      <div id="recent-groups"></div>
     </div>
   </div>
 
@@ -641,7 +1319,7 @@
     <div class="app">
       <header>
         <div class="title-group">
-          <h1>Spesa</h1>
+          <h1>Lista Spesa</h1>
           <div class="status"><span id="status-dot"></span><span id="group-label"></span></div>
         </div>
         <button id="switch-group">Cambia gruppo</button>
@@ -653,7 +1331,14 @@
         <button type="submit" class="add-btn" aria-label="Aggiungi">+</button>
       </form>
 
-      <div id="cat-picker"></div>
+      <div id="suggest-banner"></div>
+
+      <div id="cat-picker-row">
+        <div id="cat-picker"></div>
+        <button id="manage-cats-btn" type="button" aria-label="Gestisci categorie">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
 
       <div class="list-header">
         <span id="count"></span>
@@ -666,6 +1351,48 @@
         <div class="icon">🧺</div>
         <p>Il carrello è vuoto. Aggiungi il primo prodotto.</p>
       </div>
+    </div>
+  </div>
+
+  <!-- Gestione categorie -->
+  <div class="overlay" id="cat-manager-overlay">
+    <div class="sheet">
+      <div class="sheet-header">
+        <h2>Categorie</h2>
+        <button class="sheet-close" id="cat-manager-close" aria-label="Chiudi">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="cat-manager-list"></div>
+      <form id="new-cat-form">
+        <div class="new-cat-row">
+          <input id="new-cat-emoji" type="text" placeholder="🛒" maxlength="4">
+          <input id="new-cat-name" type="text" placeholder="Nuova categoria…" autocomplete="off">
+        </div>
+        <div id="new-cat-colors"></div>
+        <button type="submit" class="new-cat-submit">Aggiungi categoria</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modifica prodotto -->
+  <div class="overlay" id="edit-overlay">
+    <div class="sheet">
+      <div class="sheet-header">
+        <h2>Modifica prodotto</h2>
+        <button class="sheet-close" id="edit-close" aria-label="Chiudi">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <form id="edit-form">
+        <input id="edit-name" type="text" placeholder="Nome prodotto" autocomplete="off" required>
+        <input id="edit-qty" type="text" placeholder="Quantità (opzionale)" autocomplete="off">
+        <div id="edit-cat-picker"></div>
+        <div class="edit-actions">
+          <button type="submit" class="edit-save">Salva</button>
+          <button type="button" class="edit-delete-btn" id="edit-delete">Elimina</button>
+        </div>
+      </form>
     </div>
   </div>
 
