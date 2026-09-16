@@ -25,50 +25,79 @@
 
   // ---- Categorie di default (usate solo se il gruppo non ha ancora categorie proprie) ----
   const DEFAULT_CATEGORIES = {
-    fresco:    { label: "Fresco",      color: "#5c8a5c", icon: "🥬", order: 0 },
-    dispensa:  { label: "Dispensa",    color: "#b98a3d", icon: "🥫", order: 1 },
-    surgelati: { label: "Surgelati",   color: "#4f7d9c", icon: "❄️", order: 2 },
-    casa:      { label: "Casa e cura", color: "#8a6a9c", icon: "🧴", order: 3 },
-    bevande:   { label: "Bevande",     color: "#a25c5c", icon: "🧃", order: 4 },
-    altro:     { label: "Altro",       color: "#8a8578", icon: "🛒", order: 5 },
+    frutta_verdura: { label: "Frutta e Verdura",  color: "#5c8a5c", icon: "🥦", order: 0 },
+    latticini:      { label: "Latticini e Uova",  color: "#c7a23d", icon: "🧀", order: 1 },
+    carne_pesce:    { label: "Carne e Pesce",     color: "#b3503f", icon: "🍗", order: 2 },
+    panetteria:     { label: "Pane e Panetteria", color: "#c98f4e", icon: "🥖", order: 3 },
+    colazione:      { label: "Colazione",         color: "#d19a6a", icon: "🥐", order: 4 },
+    dispensa:       { label: "Dispensa",          color: "#b98a3d", icon: "🥫", order: 5 },
+    surgelati:      { label: "Surgelati",         color: "#4f7d9c", icon: "❄️", order: 6 },
+    bevande:        { label: "Bevande",           color: "#a25c8a", icon: "🧃", order: 7 },
+    casa:           { label: "Casa e Igiene",     color: "#8a6a9c", icon: "🧴", order: 8 },
+    altro:          { label: "Altro",             color: "#8a8578", icon: "🛒", order: 9 },
   };
   const DEFAULT_CAT = "altro";
 
   // Dizionario per suggerimento automatico categoria in base al nome prodotto
   const AUTO_CAT_RULES = [
-    { cat: "fresco", words: [
-      "latte","yogurt","uova","uovo","burro","formaggio","stracchino","mozzarella","ricotta","robiola","gorgonzola","parmigiano","grana","scamorza","philadelphia",
-      "prosciutto","salame","affettat","mortadella","wurstel","carne","pollo","tacchino","manzo","maiale","vitello","macinato","hamburger","salsicc",
-      "pesce","salmone","merluzzo","tonno fresco","gamberi","gamberetti","cozze","vongole","branzino","orata","alici",
-      "insalata","lattuga","rucola","valeriana","radicchio","pomodor","zucchin","zucchine","melanzan","peperon","carota","carote","cipolla","porro","aglio",
-      "patata","patate","sedano","finocchio","cetriol","funghi","asparagi","cavolfiore","cavolo","broccol","spinaci","bietol","basilico","prezzemolo","rosmarino","menta",
-      "mela","mele","banana","pera","pere","arancia","arance","mandarin","limone","lime","pompelmo","uva","fragol","kiwi","pesca","pesche","albicocc","susin","ciliegie","melone","anguria","ananas","avocado",
-      "frutta","verdura","panna","mascarpone","speck","bresaola","tofu","seitan","tempeh","pasta fresca","tortellini","ravioli","gnocchi freschi","piadina fresca"
+    { cat: "frutta_verdura", words: [
+      "insalata","lattuga","rucola","valeriana","radicchio","indivia","scarola","songino",
+      "pomodor","zucchin","zucchine","melanzan","peperon","carota","carote","cipolla","cipollott","porro","aglio","scalogno",
+      "patata","patate","sedano","finocchio","cetriol","funghi","champignon","asparagi","cavolfiore","cavolo","cavoletti","broccol","spinaci","bietol","erbette",
+      "basilico","prezzemolo","rosmarino","salvia","menta","timo","origano","erba cipollina","zenzero fresco",
+      "mela","mele","banana","banane","pera","pere","arancia","arance","mandarin","clementine","limone","limoni","lime","pompelmo",
+      "uva","fragol","kiwi","pesca","pesche","nettarina","albicocc","susin","prugne","ciliegie","melone","anguria","cocomero","ananas","avocado","cachi","fichi","melograno","mirtilli","lamponi","more di rospo","noci di cocco",
+      "frutta","verdura","fagiolini","piselli freschi","carciofi","zucca","barbabietola","rapa","rape rosse","germogli"
+    ] },
+    { cat: "latticini", words: [
+      "latte","yogurt","yogurt greco","kefir","uova","uovo",
+      "burro","margarina","formaggio","formaggi","stracchino","mozzarella","mozzarelline","fior di latte","burrata","ricotta","robiola","gorgonzola",
+      "parmigiano","grana","pecorino","provolone","scamorza","caciotta","philadelphia","crescenza","primo sale","emmental","fontina","asiago","taleggio","brie","camembert",
+      "panna","panna da cucina","mascarpone","formaggio spalmabile","latte di soia","latte d'avena","latte di mandorla","latte senza lattosio","tofu"
+    ] },
+    { cat: "carne_pesce", words: [
+      "prosciutto","prosciutto crudo","prosciutto cotto","salame","salamino","affettat","mortadella","speck","bresaola","coppa","pancetta","wurstel","wurstel di pollo",
+      "carne","carne macinata","macinato","pollo","petto di pollo","cosce di pollo","tacchino","manzo","bistecc","fettine","arrosto","maiale","costine","vitello","agnello","coniglio","hamburger","polpette","salsicc","salsicce","spiedini",
+      "pesce","pesce fresco","salmone","merluzzo","branzino","orata","spigola","sogliola","platessa","tonno fresco","spada","sgombro fresco","alici fresche","sarde","gamberi","gamberetti","scampi","cozze","vongole","calamari","polpo","seppie","frutti di mare","seitan","tempeh"
+    ] },
+    { cat: "panetteria", words: [
+      "pane","pane fresco","pane integrale","pane casereccio","panini","panino","rosetta","baguette","ciabatta","filone",
+      "grissini","piadina","piadine","pane carasau","focaccia","taralli","friselle","pan carré","pancarré","fette biscottate integrali",
+      "brioche","cornetti","croissant fresco","torta fresca","pasticcini"
+    ] },
+    { cat: "colazione", words: [
+      "biscott","frollini","biscotti integrali","biscotti secchi","merendine","fette biscottate","gallette","gallette di riso",
+      "cereali","corn flakes","fiocchi d'avena","muesli","granola",
+      "marmellata","confettura","miele","nutella","crema spalmabile","cioccolat","cacao","orzo solubile",
+      "caffè","caffe","capsule caffè","cialde caffè","moka","the","tè","tisana","tè in bustine","zucchero","dolcificante",
+      "yogurt da bere","succo di frutta a colazione","latte per colazione"
+    ] },
+    { cat: "dispensa", words: [
+      "pasta","spaghetti","penne","fusilli","farfalle","rigatoni","linguine","tagliatelle","lasagne","pasta all'uovo","pasta integrale","pasta senza glutine","cous cous","riso","riso basmati","riso venere","farina","farina 00","farina integrale","farina di mais","fecola","amido","zucchero","zucchero di canna","sale","olio","olio evo","olio di semi","aceto","aceto balsamico","lievito","lievito madre","orzo","farro",
+      "cracker","snack","patatine","taralli salati","popcorn",
+      "legumi","fagioli","fagioli cannellini","lenticchie","ceci","piselli in scatola","soia",
+      "passata","polpa di pomodoro","sugo","pelati","concentrato di pomodoro","conserva","tonno in scatola","sgombro in scatola","scatoletta","scatola","pesce in scatola",
+      "brodo","dado",
+      "sott'olio","sottaceti","capperi","olive","noci","mandorle","nocciole","arachidi","pistacchi","uvetta","semi","frutta secca",
+      "ketchup","maionese","senape","salsa di soia","spezie","pepe","peperoncino","curry","cannella","vaniglia","paprika","noce moscata","alloro","condimenti",
+      "tortillas","farina per pizza","impasto pizza","lievito di birra"
     ] },
     { cat: "surgelati", words: [
       "surgelat","surgelato","surgelata","gelato","ghiacciol","sorbetto",
-      "pesce surgelato","bastoncini di pesce","piselli surgelati","spinaci surgelati","verdure surgelate","misto mare",
-      "patatine surgelate","patatine fritte surgelate","cotoletta surgelata","hamburger surgelato","pizza surgelata","lasagne surgelate","gnocchi surgelati","frutti di bosco surgelati","minestrone surgelato"
-    ] },
-    { cat: "dispensa", words: [
-      "pasta","spaghetti","penne","fusilli","riso","pane","farina","zucchero","sale","olio","aceto","caffè","caffe","the","tè","tisana","orzo",
-      "biscott","cracker","fette biscottate","merendine","snack","patatine","taralli","grissini",
-      "legumi","fagioli","lenticchie","ceci","piselli in scatola",
-      "passata","polpa di pomodoro","sugo","pelati","conserva","tonno in scatola","sgombro in scatola","scatoletta","scatola",
-      "cereali","fiocchi d'avena","muesli","marmellata","miele","nutella","cioccolat","caramelle","dolciumi",
-      "piadine","tortillas","pan carré","fette","brodo","dado","lievito","farina 00","farina integrale",
-      "sott'olio","sottaceti","capperi","olive","noci","mandorle","nocciole","arachidi","pistacchi","uvetta","semi",
-      "ketchup","maionese","senape","spezie","pepe","peperoncino","curry","cannella","vaniglia"
-    ] },
-    { cat: "casa", words: [
-      "detersivo","detergente","sapone","shampoo","balsamo","bagnoschiuma","gel doccia","carta igienica","scottex","fazzolett","tovaglioli","spugn","strofinacci",
-      "candeggina","ammorbidente","sgrassatore","anticalcare","disinfettante","igienizzante",
-      "dentifricio","spazzolino","filo interdentale","collutorio","rasoio","schiuma da barba","deodorante","cotton fioc","cerotti",
-      "pannolin","assorbent","salviette","fazzoletti di carta","sacchetti","sacchi spazzatura","pile","batterie","lampadin","alluminio","pellicola","carta forno","stuzzicadenti","fiammiferi","accendino"
+      "pesce surgelato","bastoncini di pesce","piselli surgelati","spinaci surgelati","verdure surgelate","misto mare","misto per soffritto surgelato",
+      "patatine surgelate","patatine fritte surgelate","cotoletta surgelata","hamburger surgelato","pizza surgelata","lasagne surgelate","gnocchi surgelati","tortellini surgelati","frutti di bosco surgelati","minestrone surgelato","polpette surgelate"
     ] },
     { cat: "bevande", words: [
-      "acqua","vino","birra","succo","succhi","bibita","coca","cola","fanta","sprite","aranciata","chinotto","tè freddo","the freddo","tè in bottiglia",
-      "spumante","prosecco","champagne","liquore","amaro","grappa","whisky","vodka","rum","gin","aperitivo","energy drink","tonica"
+      "acqua","acqua naturale","acqua frizzante","vino","vino rosso","vino bianco","birra","birra analcolica",
+      "succo","succhi","succo di frutta","bibita","coca cola","cola","fanta","sprite","aranciata","chinotto","tè freddo","the freddo","tè in bottiglia",
+      "spumante","prosecco","champagne","liquore","amaro","grappa","whisky","vodka","rum","gin","aperitivo","bitter","energy drink","tonica","bevanda energetica"
+    ] },
+    { cat: "casa", words: [
+      "detersivo","detersivo piatti","detersivo lavatrice","detergente","detergente pavimenti","sapone","sapone di marsiglia","shampoo","balsamo","bagnoschiuma","gel doccia","carta igienica","scottex","fazzolett","tovaglioli","tovaglioli di carta","spugn","strofinacci","panni",
+      "candeggina","ammorbidente","sgrassatore","anticalcare","disinfettante","igienizzante","insetticida","deodorante ambiente",
+      "dentifricio","spazzolino","filo interdentale","collutorio","rasoio","lamette","schiuma da barba","deodorante","cotton fioc","cerotti","disinfettante per ferite",
+      "pannolin","assorbent","salviette","salviette umidificate","fazzoletti di carta","sacchetti","sacchi spazzatura","pile","batterie","lampadin","lampadina","alluminio","pellicola trasparente","carta forno","stuzzicadenti","fiammiferi","accendino",
+      "crema viso","crema corpo","crema mani","struccante","cotone idrofilo","assorbenti interni","pannolini bimbo","salviette bimbo","crocchette","cibo per gatti","cibo per cani","lettiera"
     ] },
   ];
   function suggestCategory(name, categories) {
