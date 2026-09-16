@@ -22,7 +22,6 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  const listRef = ref(db, "spesa");
 
   // ---- Categorie ----
   const CATEGORIES = [
@@ -35,9 +34,79 @@
   ];
   const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
   const DEFAULT_CAT = "altro";
-
   let activeCategory = DEFAULT_CAT;
 
+  // ---- Normalizzazione codice gruppo ----
+  function normalizeGroup(raw) {
+    return raw
+      .trim()
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // rimuove accenti
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  // ---- Elementi login ----
+  const loginScreen = document.getElementById("login-screen");
+  const appScreen = document.getElementById("app-screen");
+  const loginForm = document.getElementById("login-form");
+  const groupInput = document.getElementById("group-input");
+  const loginError = document.getElementById("login-error");
+  const groupLabel = document.getElementById("group-label");
+  const switchGroupBtn = document.getElementById("switch-group");
+
+  let listRef = null;
+  let items = {};
+  let unsubscribe = null;
+
+  const STORAGE_KEY = "spesa_gruppo";
+
+  function enterGroup(groupId) {
+    const clean = normalizeGroup(groupId);
+    if (!clean) {
+      loginError.textContent = "Inserisci un codice valido (es. \"casa-rossi\").";
+      loginError.style.display = "block";
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, clean);
+    listRef = ref(db, "spesa/" + clean);
+    groupLabel.textContent = clean;
+    loginScreen.style.display = "none";
+    appScreen.style.display = "block";
+
+    if (unsubscribe) unsubscribe();
+    unsubscribe = onValue(listRef, (snapshot) => {
+      items = snapshot.val() || {};
+      render();
+      statusDot.classList.remove("offline");
+    }, () => {
+      statusDot.classList.add("offline");
+    });
+  }
+
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    loginError.style.display = "none";
+    enterGroup(groupInput.value);
+  });
+
+  switchGroupBtn.addEventListener("click", () => {
+    localStorage.removeItem(STORAGE_KEY);
+    appScreen.style.display = "none";
+    loginScreen.style.display = "flex";
+    groupInput.value = "";
+    groupInput.focus();
+  });
+
+  // Auto-login se già salvato
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    enterGroup(saved);
+  } else {
+    groupInput.focus();
+  }
+
+  // ---- Elementi app ----
   const form = document.getElementById("add-form");
   const input = document.getElementById("item-input");
   const qtyInput = document.getElementById("qty-input");
@@ -48,7 +117,6 @@
   const clearBtn = document.getElementById("clear-done");
   const statusDot = document.getElementById("status-dot");
 
-  // Costruisci i chip di selezione categoria
   for (const cat of CATEGORIES) {
     const chip = document.createElement("button");
     chip.type = "button";
@@ -63,23 +131,12 @@
     catPicker.appendChild(chip);
   }
 
-  let items = {};
-
-  onValue(listRef, (snapshot) => {
-    items = snapshot.val() || {};
-    render();
-    statusDot.classList.remove("offline");
-  }, () => {
-    statusDot.classList.add("offline");
-  });
-
   function render() {
     const entries = Object.entries(items);
     listEl.innerHTML = "";
 
     emptyState.style.display = entries.length === 0 ? "block" : "none";
 
-    // Raggruppa per categoria, mantenendo l'ordine definito in CATEGORIES
     const groups = {};
     for (const [id, item] of entries) {
       const catId = CAT_MAP[item.cat] ? item.cat : DEFAULT_CAT;
@@ -120,7 +177,7 @@
           ? '<svg viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
           : "";
         check.addEventListener("click", () => {
-          update(ref(db, "spesa/" + id), { done: !item.done });
+          update(ref(db, `spesa/${groupLabel.textContent}/${id}`), { done: !item.done });
         });
 
         const label = document.createElement("span");
@@ -141,7 +198,7 @@
         del.setAttribute("aria-label", "Rimuovi");
         del.innerHTML = '<svg viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
         del.addEventListener("click", () => {
-          remove(ref(db, "spesa/" + id));
+          remove(ref(db, `spesa/${groupLabel.textContent}/${id}`));
         });
 
         li.appendChild(check);
@@ -164,7 +221,7 @@
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const name = input.value.trim();
-    if (!name) return;
+    if (!name || !listRef) return;
     const qty = qtyInput.value.trim();
     const order = Date.now();
     push(listRef, { name, qty, done: false, order, cat: activeCategory });
@@ -176,108 +233,177 @@
   clearBtn.addEventListener("click", () => {
     const updates = {};
     for (const [id, item] of Object.entries(items)) {
-      if (item.done) updates[id] = null;
+      if (item.done) updates[`spesa/${groupLabel.textContent}/${id}`] = null;
     }
-    update(listRef, updates);
+    update(ref(db), updates);
   });
 </script>
 <style>
   :root{
-    --paper:#faf8f4;
-    --ink:#1f2318;
-    --ink-soft:#5c6155;
-    --leaf:#4a6b4a;
-    --leaf-deep:#33492f;
-    --line:#ddd8cc;
+    --paper:#ffffff;
+    --surface:#fafaf9;
+    --ink:#222220;
+    --ink-soft:#8a8781;
+    --accent:#3a3a36;
+    --line:#e7e5df;
     --card:#ffffff;
-    --danger:#a2483a;
-    --chip-bg:#f1efe7;
+    --danger:#b3503f;
+    --chip-bg:#f4f3ef;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--paper);
+    background:var(--surface);
     color:var(--ink);
-    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     min-height:100vh;
     display:flex;
     justify-content:center;
-    padding:0 16px 48px;
   }
   .app{
     width:100%;
     max-width:480px;
-    padding-top:36px;
+    padding:36px 16px 48px;
   }
+
+  /* ---- Login ---- */
+  #login-screen{
+    min-height:100vh;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .login-box{
+    width:100%;
+    max-width:340px;
+    text-align:center;
+  }
+  .login-box h1{
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 6px;
+    color:var(--ink);
+  }
+  .login-box p{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin:0 0 28px;
+    line-height:1.5;
+  }
+  #login-form{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  #group-input{
+    font-size:16px;
+    padding:14px 16px;
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    background:var(--paper);
+    color:var(--ink);
+    outline:none;
+    text-align:center;
+  }
+  #group-input:focus{ border-color:var(--accent); }
+  #group-input::placeholder{ color:#b8b5ae; }
+  .login-btn{
+    font-size:15px;
+    font-weight:600;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:var(--accent);
+    color:#fff;
+    cursor:pointer;
+    transition:opacity .15s;
+  }
+  .login-btn:hover{ opacity:0.88; }
+  .login-hint{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:16px;
+    line-height:1.5;
+  }
+  .login-error{
+    display:none;
+    font-size:13px;
+    color:var(--danger);
+    margin-top:4px;
+  }
+
+  /* ---- App ---- */
+  #app-screen{ display:none; width:100%; }
+
   header{
     display:flex;
-    align-items:baseline;
+    align-items:center;
     justify-content:space-between;
     margin-bottom:4px;
   }
+  .title-group{
+    display:flex;
+    flex-direction:column;
+  }
   h1{
-    font-size:28px;
+    font-size:22px;
     font-weight:600;
-    letter-spacing:0.2px;
+    letter-spacing:-0.2px;
     margin:0;
-    color:var(--leaf-deep);
+    color:var(--ink);
   }
   .status{
     display:flex;
     align-items:center;
     gap:6px;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:12px;
     color:var(--ink-soft);
+    margin-top:2px;
   }
   #status-dot{
-    width:7px;height:7px;border-radius:50%;
-    background:var(--leaf);
+    width:6px;height:6px;border-radius:50%;
+    background:#5c8a5c;
     transition:background .3s;
   }
   #status-dot.offline{background:var(--danger);}
-  .subtitle{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    font-size:13px;
+  #switch-group{
+    background:none;
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:6px 12px;
+    font-size:12px;
     color:var(--ink-soft);
-    margin:0 0 20px;
+    cursor:pointer;
   }
+  #switch-group:hover{ border-color:var(--ink-soft); }
 
   #add-form{
     display:flex;
     gap:8px;
-    margin-bottom:12px;
+    margin:22px 0 12px;
   }
-  #item-input{
-    flex:1;
-    min-width:0;
-  }
-  #qty-input{
-    width:76px;
-    flex-shrink:0;
-  }
+  #item-input{ flex:1; min-width:0; }
+  #qty-input{ width:72px; flex-shrink:0; }
   #item-input, #qty-input{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:16px;
     padding:12px 14px;
     border:1.5px solid var(--line);
     border-radius:10px;
-    background:var(--card);
+    background:var(--paper);
     color:var(--ink);
     outline:none;
   }
-  #item-input:focus, #qty-input:focus{
-    border-color:var(--leaf);
-  }
-  #item-input::placeholder, #qty-input::placeholder{
-    color:#a8a595;
-  }
+  #item-input:focus, #qty-input:focus{ border-color:var(--accent); }
+  #item-input::placeholder, #qty-input::placeholder{ color:#b8b5ae; }
   .add-btn{
     flex-shrink:0;
     width:46px;
     border:none;
     border-radius:10px;
-    background:var(--leaf-deep);
+    background:var(--accent);
     color:#fff;
     font-size:22px;
     line-height:1;
@@ -285,12 +411,11 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    transition:background .15s;
+    transition:opacity .15s;
   }
-  .add-btn:hover{background:var(--leaf);}
-  .add-btn:active{transform:scale(0.96);}
+  .add-btn:hover{ opacity:0.88; }
+  .add-btn:active{ transform:scale(0.96); }
 
-  /* Selettore categoria */
   #cat-picker{
     display:flex;
     gap:6px;
@@ -305,7 +430,6 @@
     display:flex;
     align-items:center;
     gap:6px;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:12.5px;
     color:var(--ink-soft);
     background:var(--chip-bg);
@@ -323,7 +447,7 @@
     flex-shrink:0;
   }
   .cat-chip.active{
-    border-color:var(--chip-color, var(--leaf));
+    border-color:var(--chip-color, var(--accent));
     color:var(--ink);
   }
 
@@ -331,7 +455,6 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:12.5px;
     color:var(--ink-soft);
     margin-bottom:10px;
@@ -357,18 +480,14 @@
     flex-direction:column;
     gap:20px;
   }
-  .cat-section{
-    display:flex;
-    flex-direction:column;
-  }
+  .cat-section{ display:flex; flex-direction:column; }
   .cat-heading{
     display:flex;
     align-items:center;
     gap:7px;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:12px;
     font-weight:600;
-    letter-spacing:0.3px;
+    letter-spacing:0.2px;
     color:var(--ink-soft);
     margin-bottom:8px;
     padding-left:2px;
@@ -401,7 +520,7 @@
     flex-shrink:0;
     width:24px;height:24px;
     border-radius:50%;
-    border:1.8px solid var(--chip-color, var(--leaf));
+    border:1.8px solid var(--chip-color, var(--accent));
     background:none;
     cursor:pointer;
     display:flex;
@@ -411,9 +530,7 @@
     padding:0;
     transition:background .15s, border-color .15s;
   }
-  .item.done .check{
-    background:var(--chip-color, var(--leaf));
-  }
+  .item.done .check{ background:var(--chip-color, var(--accent)); }
   .check svg{width:14px;height:14px;}
 
   .label{
@@ -422,7 +539,7 @@
     display:flex;
     align-items:baseline;
     gap:8px;
-    font-size:16.5px;
+    font-size:15.5px;
   }
   .name{
     overflow:hidden;
@@ -431,10 +548,9 @@
   }
   .qty{
     flex-shrink:0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:12.5px;
     color:var(--ink-soft);
-    background:var(--paper);
+    background:var(--surface);
     padding:2px 8px;
     border-radius:20px;
   }
@@ -443,16 +559,14 @@
     text-decoration:line-through;
     text-decoration-color:var(--ink-soft);
   }
-  .item.done .qty{
-    opacity:0.6;
-  }
+  .item.done .qty{ opacity:0.6; }
 
   .del{
     flex-shrink:0;
     width:26px;height:26px;
     border:none;
     background:none;
-    color:#c2bfb2;
+    color:#cfccc3;
     cursor:pointer;
     display:flex;
     align-items:center;
@@ -471,69 +585,89 @@
   #empty-state .icon{
     font-size:30px;
     margin-bottom:10px;
-    opacity:0.5;
+    opacity:0.4;
   }
   #empty-state p{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     font-size:14px;
     margin:0;
   }
 
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --paper:#181a15;
-      --ink:#ece9e0;
-      --ink-soft:#9b9a8d;
-      --leaf:#7fa876;
-      --leaf-deep:#a7c99c;
-      --line:#33352c;
-      --card:#212319;
-      --danger:#d9776a;
-      --chip-bg:#212319;
+      --paper:#1c1c1a;
+      --surface:#141412;
+      --ink:#f0efe9;
+      --ink-soft:#9b988f;
+      --accent:#e8e6de;
+      --line:#302f2b;
+      --card:#1c1c1a;
+      --danger:#e08b78;
+      --chip-bg:#232320;
     }
-    :root:not([data-theme="light"]) .add-btn{ color:#181a15; }
+    :root:not([data-theme="light"]) .add-btn,
+    :root:not([data-theme="light"]) .login-btn{ color:#141412; }
   }
   :root[data-theme="dark"]{
-    --paper:#181a15;
-    --ink:#ece9e0;
-    --ink-soft:#9b9a8d;
-    --leaf:#7fa876;
-    --leaf-deep:#a7c99c;
-    --line:#33352c;
-    --card:#212319;
-    --danger:#d9776a;
-    --chip-bg:#212319;
+    --paper:#1c1c1a;
+    --surface:#141412;
+    --ink:#f0efe9;
+    --ink-soft:#9b988f;
+    --accent:#e8e6de;
+    --line:#302f2b;
+    --card:#1c1c1a;
+    --danger:#e08b78;
+    --chip-bg:#232320;
   }
-  :root[data-theme="dark"] .add-btn{ color:#181a15; }
+  :root[data-theme="dark"] .add-btn,
+  :root[data-theme="dark"] .login-btn{ color:#141412; }
 </style>
 </head>
 <body>
-  <div class="app">
-    <header>
+
+  <div id="login-screen">
+    <div class="login-box">
       <h1>Spesa</h1>
-      <div class="status"><span id="status-dot"></span>sincronizzata</div>
-    </header>
-    <p class="subtitle">Condivisa in tempo reale su tutti i dispositivi</p>
-
-    <form id="add-form">
-      <input id="item-input" type="text" placeholder="Aggiungi un prodotto…" autocomplete="off" required>
-      <input id="qty-input" type="text" placeholder="qtà" autocomplete="off">
-      <button type="submit" class="add-btn" aria-label="Aggiungi">+</button>
-    </form>
-
-    <div id="cat-picker"></div>
-
-    <div class="list-header">
-      <span id="count"></span>
-      <button id="clear-done" class="clear-btn">Rimuovi presi</button>
-    </div>
-
-    <ul id="list"></ul>
-
-    <div id="empty-state">
-      <div class="icon">🧺</div>
-      <p>Il carrello è vuoto. Aggiungi il primo prodotto.</p>
+      <p>Inserisci il codice del tuo gruppo per accedere alla lista condivisa. Se non esiste ancora, viene creata al volo.</p>
+      <form id="login-form">
+        <input id="group-input" type="text" placeholder="es. casa-rossi" autocomplete="off" required>
+        <button type="submit" class="login-btn">Entra</button>
+      </form>
+      <p class="login-error" id="login-error"></p>
+      <p class="login-hint">Chi conosce lo stesso codice vede e modifica la stessa lista, in tempo reale.</p>
     </div>
   </div>
+
+  <div id="app-screen">
+    <div class="app">
+      <header>
+        <div class="title-group">
+          <h1>Spesa</h1>
+          <div class="status"><span id="status-dot"></span><span id="group-label"></span></div>
+        </div>
+        <button id="switch-group">Cambia gruppo</button>
+      </header>
+
+      <form id="add-form">
+        <input id="item-input" type="text" placeholder="Aggiungi un prodotto…" autocomplete="off" required>
+        <input id="qty-input" type="text" placeholder="qtà" autocomplete="off">
+        <button type="submit" class="add-btn" aria-label="Aggiungi">+</button>
+      </form>
+
+      <div id="cat-picker"></div>
+
+      <div class="list-header">
+        <span id="count"></span>
+        <button id="clear-done" class="clear-btn">Rimuovi presi</button>
+      </div>
+
+      <ul id="list"></ul>
+
+      <div id="empty-state">
+        <div class="icon">🧺</div>
+        <p>Il carrello è vuoto. Aggiungi il primo prodotto.</p>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
