@@ -38,74 +38,272 @@
   };
   const DEFAULT_CAT = "altro";
 
-  // Dizionario per suggerimento automatico categoria in base al nome prodotto
-  const AUTO_CAT_RULES = [
-    { cat: "frutta_verdura", words: [
-      "insalata","lattuga","rucola","valeriana","radicchio","indivia","scarola","songino",
-      "pomodor","zucchin","zucchine","melanzan","peperon","carota","carote","cipolla","cipollott","porro","aglio","scalogno",
-      "patata","patate","sedano","finocchio","cetriol","funghi","champignon","asparagi","cavolfiore","cavolo","cavoletti","broccol","spinaci","bietol","erbette",
-      "basilico","prezzemolo","rosmarino","salvia","menta","timo","origano","erba cipollina","zenzero fresco",
-      "mela","mele","banana","banane","pera","pere","arancia","arance","mandarin","clementine","limone","limoni","lime","pompelmo",
-      "uva","fragol","kiwi","pesca","pesche","nettarina","albicocc","susin","prugne","ciliegie","melone","anguria","cocomero","ananas","avocado","cachi","fichi","melograno","mirtilli","lamponi","more di rospo","noci di cocco",
-      "frutta","verdura","fagiolini","piselli freschi","carciofi","zucca","barbabietola","rapa","rape rosse","germogli"
-    ] },
-    { cat: "latticini", words: [
-      "latte","yogurt","yogurt greco","kefir","uova","uovo",
-      "burro","margarina","formaggio","formaggi","stracchino","mozzarella","mozzarelline","fior di latte","burrata","ricotta","robiola","gorgonzola",
-      "parmigiano","grana","pecorino","provolone","scamorza","caciotta","philadelphia","crescenza","primo sale","emmental","fontina","asiago","taleggio","brie","camembert",
-      "panna","panna da cucina","mascarpone","formaggio spalmabile","latte di soia","latte d'avena","latte di mandorla","latte senza lattosio","tofu"
-    ] },
-    { cat: "carne_pesce", words: [
-      "prosciutto","prosciutto crudo","prosciutto cotto","salame","salamino","affettat","mortadella","speck","bresaola","coppa","pancetta","wurstel","wurstel di pollo",
-      "carne","carne macinata","macinato","pollo","petto di pollo","cosce di pollo","tacchino","manzo","bistecc","fettine","arrosto","maiale","costine","vitello","agnello","coniglio","hamburger","polpette","salsicc","salsicce","spiedini",
-      "pesce","pesce fresco","salmone","merluzzo","branzino","orata","spigola","sogliola","platessa","tonno fresco","spada","sgombro fresco","alici fresche","sarde","gamberi","gamberetti","scampi","cozze","vongole","calamari","polpo","seppie","frutti di mare","seitan","tempeh"
-    ] },
-    { cat: "panetteria", words: [
-      "pane","pane fresco","pane integrale","pane casereccio","panini","panino","rosetta","baguette","ciabatta","filone",
-      "grissini","piadina","piadine","pane carasau","focaccia","taralli","friselle","pan carré","pancarré","fette biscottate integrali",
-      "brioche","cornetti","croissant fresco","torta fresca","pasticcini"
-    ] },
-    { cat: "colazione", words: [
-      "biscott","frollini","biscotti integrali","biscotti secchi","merendine","fette biscottate","gallette","gallette di riso",
-      "cereali","corn flakes","fiocchi d'avena","muesli","granola",
-      "marmellata","confettura","miele","nutella","crema spalmabile","cioccolat","cacao","orzo solubile",
-      "caffè","caffe","capsule caffè","cialde caffè","moka","the","tè","tisana","tè in bustine","zucchero","dolcificante",
-      "yogurt da bere","succo di frutta a colazione","latte per colazione"
-    ] },
-    { cat: "dispensa", words: [
-      "pasta","spaghetti","penne","fusilli","farfalle","rigatoni","linguine","tagliatelle","lasagne","pasta all'uovo","pasta integrale","pasta senza glutine","cous cous","riso","riso basmati","riso venere","farina","farina 00","farina integrale","farina di mais","fecola","amido","zucchero","zucchero di canna","sale","olio","olio evo","olio di semi","aceto","aceto balsamico","lievito","lievito madre","orzo","farro",
-      "cracker","snack","patatine","taralli salati","popcorn",
-      "legumi","fagioli","fagioli cannellini","lenticchie","ceci","piselli in scatola","soia",
-      "passata","polpa di pomodoro","sugo","pelati","concentrato di pomodoro","conserva","tonno in scatola","sgombro in scatola","scatoletta","scatola","pesce in scatola",
-      "brodo","dado",
-      "sott'olio","sottaceti","capperi","olive","noci","mandorle","nocciole","arachidi","pistacchi","uvetta","semi","frutta secca",
-      "ketchup","maionese","senape","salsa di soia","spezie","pepe","peperoncino","curry","cannella","vaniglia","paprika","noce moscata","alloro","condimenti",
-      "tortillas","farina per pizza","impasto pizza","lievito di birra"
-    ] },
-    { cat: "surgelati", words: [
-      "surgelat","surgelato","surgelata","gelato","ghiacciol","sorbetto",
-      "pesce surgelato","bastoncini di pesce","piselli surgelati","spinaci surgelati","verdure surgelate","misto mare","misto per soffritto surgelato",
-      "patatine surgelate","patatine fritte surgelate","cotoletta surgelata","hamburger surgelato","pizza surgelata","lasagne surgelate","gnocchi surgelati","tortellini surgelati","frutti di bosco surgelati","minestrone surgelato","polpette surgelate"
-    ] },
-    { cat: "bevande", words: [
-      "acqua","acqua naturale","acqua frizzante","vino","vino rosso","vino bianco","birra","birra analcolica",
-      "succo","succhi","succo di frutta","bibita","coca cola","cola","fanta","sprite","aranciata","chinotto","tè freddo","the freddo","tè in bottiglia",
-      "spumante","prosecco","champagne","liquore","amaro","grappa","whisky","vodka","rum","gin","aperitivo","bitter","energy drink","tonica","bevanda energetica"
-    ] },
-    { cat: "casa", words: [
-      "detersivo","detersivo piatti","detersivo lavatrice","detergente","detergente pavimenti","sapone","sapone di marsiglia","shampoo","balsamo","bagnoschiuma","gel doccia","carta igienica","scottex","fazzolett","tovaglioli","tovaglioli di carta","spugn","strofinacci","panni",
-      "candeggina","ammorbidente","sgrassatore","anticalcare","disinfettante","igienizzante","insetticida","deodorante ambiente",
-      "dentifricio","spazzolino","filo interdentale","collutorio","rasoio","lamette","schiuma da barba","deodorante","cotton fioc","cerotti","disinfettante per ferite",
-      "pannolin","assorbent","salviette","salviette umidificate","fazzoletti di carta","sacchetti","sacchi spazzatura","pile","batterie","lampadin","lampadina","alluminio","pellicola trasparente","carta forno","stuzzicadenti","fiammiferi","accendino",
-      "crema viso","crema corpo","crema mani","struccante","cotone idrofilo","assorbenti interni","pannolini bimbo","salviette bimbo","crocchette","cibo per gatti","cibo per cani","lettiera"
-    ] },
+  // Catalogo prodotti predefiniti, già categorizzati: nome pulito (mostrato nei suggerimenti)
+  // + eventuali alias/varianti su cui far scattare comunque il match durante la digitazione.
+  const PRODUCT_CATALOG = [
+    // ---- Frutta e Verdura ----
+    { cat: "frutta_verdura", name: "Insalata" }, { cat: "frutta_verdura", name: "Lattuga" },
+    { cat: "frutta_verdura", name: "Rucola" }, { cat: "frutta_verdura", name: "Valeriana" },
+    { cat: "frutta_verdura", name: "Radicchio" }, { cat: "frutta_verdura", name: "Indivia" },
+    { cat: "frutta_verdura", name: "Scarola" }, { cat: "frutta_verdura", name: "Songino" },
+    { cat: "frutta_verdura", name: "Pomodori" }, { cat: "frutta_verdura", name: "Pomodorini" },
+    { cat: "frutta_verdura", name: "Zucchine" }, { cat: "frutta_verdura", name: "Melanzane" },
+    { cat: "frutta_verdura", name: "Peperoni" }, { cat: "frutta_verdura", name: "Carote" },
+    { cat: "frutta_verdura", name: "Cipolle" }, { cat: "frutta_verdura", name: "Cipollotti" },
+    { cat: "frutta_verdura", name: "Porri" }, { cat: "frutta_verdura", name: "Aglio" },
+    { cat: "frutta_verdura", name: "Scalogno" }, { cat: "frutta_verdura", name: "Patate" },
+    { cat: "frutta_verdura", name: "Sedano" }, { cat: "frutta_verdura", name: "Finocchi" },
+    { cat: "frutta_verdura", name: "Cetrioli" }, { cat: "frutta_verdura", name: "Funghi" },
+    { cat: "frutta_verdura", name: "Champignon" }, { cat: "frutta_verdura", name: "Asparagi" },
+    { cat: "frutta_verdura", name: "Cavolfiore" }, { cat: "frutta_verdura", name: "Cavolo" },
+    { cat: "frutta_verdura", name: "Cavoletti di Bruxelles" }, { cat: "frutta_verdura", name: "Broccoli" },
+    { cat: "frutta_verdura", name: "Spinaci" }, { cat: "frutta_verdura", name: "Bietole" },
+    { cat: "frutta_verdura", name: "Erbette" }, { cat: "frutta_verdura", name: "Basilico" },
+    { cat: "frutta_verdura", name: "Prezzemolo" }, { cat: "frutta_verdura", name: "Rosmarino" },
+    { cat: "frutta_verdura", name: "Salvia" }, { cat: "frutta_verdura", name: "Menta" },
+    { cat: "frutta_verdura", name: "Timo" }, { cat: "frutta_verdura", name: "Origano fresco" },
+    { cat: "frutta_verdura", name: "Erba cipollina" }, { cat: "frutta_verdura", name: "Zenzero fresco" },
+    { cat: "frutta_verdura", name: "Mele" }, { cat: "frutta_verdura", name: "Banane" },
+    { cat: "frutta_verdura", name: "Pere" }, { cat: "frutta_verdura", name: "Arance" },
+    { cat: "frutta_verdura", name: "Mandarini" }, { cat: "frutta_verdura", name: "Clementine" },
+    { cat: "frutta_verdura", name: "Limoni" }, { cat: "frutta_verdura", name: "Lime" },
+    { cat: "frutta_verdura", name: "Pompelmo" }, { cat: "frutta_verdura", name: "Uva" },
+    { cat: "frutta_verdura", name: "Fragole" }, { cat: "frutta_verdura", name: "Kiwi" },
+    { cat: "frutta_verdura", name: "Pesche" }, { cat: "frutta_verdura", name: "Nettarine" },
+    { cat: "frutta_verdura", name: "Albicocche" }, { cat: "frutta_verdura", name: "Susine" },
+    { cat: "frutta_verdura", name: "Prugne" }, { cat: "frutta_verdura", name: "Ciliegie" },
+    { cat: "frutta_verdura", name: "Melone" }, { cat: "frutta_verdura", name: "Anguria" },
+    { cat: "frutta_verdura", name: "Ananas" }, { cat: "frutta_verdura", name: "Avocado" },
+    { cat: "frutta_verdura", name: "Cachi" }, { cat: "frutta_verdura", name: "Fichi" },
+    { cat: "frutta_verdura", name: "Melograno" }, { cat: "frutta_verdura", name: "Mirtilli" },
+    { cat: "frutta_verdura", name: "Lamponi" }, { cat: "frutta_verdura", name: "More" },
+    { cat: "frutta_verdura", name: "Cocco" }, { cat: "frutta_verdura", name: "Fagiolini" },
+    { cat: "frutta_verdura", name: "Piselli freschi" }, { cat: "frutta_verdura", name: "Carciofi" },
+    { cat: "frutta_verdura", name: "Zucca" }, { cat: "frutta_verdura", name: "Barbabietola" },
+    { cat: "frutta_verdura", name: "Rape rosse" }, { cat: "frutta_verdura", name: "Germogli" },
+    { cat: "frutta_verdura", name: "Topinambur" }, { cat: "frutta_verdura", name: "Ravanelli" },
+    { cat: "frutta_verdura", name: "Peperoncino fresco" }, { cat: "frutta_verdura", name: "Uva passa" },
+
+    // ---- Latticini e Uova ----
+    { cat: "latticini", name: "Latte" }, { cat: "latticini", name: "Latte senza lattosio" },
+    { cat: "latticini", name: "Latte di soia" }, { cat: "latticini", name: "Latte d'avena" },
+    { cat: "latticini", name: "Latte di mandorla" }, { cat: "latticini", name: "Yogurt" },
+    { cat: "latticini", name: "Yogurt greco" }, { cat: "latticini", name: "Kefir" },
+    { cat: "latticini", name: "Uova" }, { cat: "latticini", name: "Burro" },
+    { cat: "latticini", name: "Margarina" }, { cat: "latticini", name: "Formaggio" },
+    { cat: "latticini", name: "Stracchino" }, { cat: "latticini", name: "Mozzarella" },
+    { cat: "latticini", name: "Mozzarelline" }, { cat: "latticini", name: "Fior di latte" },
+    { cat: "latticini", name: "Burrata" }, { cat: "latticini", name: "Ricotta" },
+    { cat: "latticini", name: "Robiola" }, { cat: "latticini", name: "Gorgonzola" },
+    { cat: "latticini", name: "Parmigiano" }, { cat: "latticini", name: "Grana" },
+    { cat: "latticini", name: "Pecorino" }, { cat: "latticini", name: "Provolone" },
+    { cat: "latticini", name: "Scamorza" }, { cat: "latticini", name: "Caciotta" },
+    { cat: "latticini", name: "Philadelphia" }, { cat: "latticini", name: "Crescenza" },
+    { cat: "latticini", name: "Primo sale" }, { cat: "latticini", name: "Emmental" },
+    { cat: "latticini", name: "Fontina" }, { cat: "latticini", name: "Asiago" },
+    { cat: "latticini", name: "Taleggio" }, { cat: "latticini", name: "Brie" },
+    { cat: "latticini", name: "Camembert" }, { cat: "latticini", name: "Feta" },
+    { cat: "latticini", name: "Panna" }, { cat: "latticini", name: "Panna da cucina" },
+    { cat: "latticini", name: "Mascarpone" }, { cat: "latticini", name: "Formaggio spalmabile" },
+    { cat: "latticini", name: "Tofu" },
+
+    // ---- Carne e Pesce ----
+    { cat: "carne_pesce", name: "Prosciutto crudo" }, { cat: "carne_pesce", name: "Prosciutto cotto" },
+    { cat: "carne_pesce", name: "Salame" }, { cat: "carne_pesce", name: "Salamino piccante" },
+    { cat: "carne_pesce", name: "Mortadella" }, { cat: "carne_pesce", name: "Speck" },
+    { cat: "carne_pesce", name: "Bresaola" }, { cat: "carne_pesce", name: "Coppa" },
+    { cat: "carne_pesce", name: "Pancetta" }, { cat: "carne_pesce", name: "Würstel" },
+    { cat: "carne_pesce", name: "Carne macinata" }, { cat: "carne_pesce", name: "Pollo" },
+    { cat: "carne_pesce", name: "Petto di pollo" }, { cat: "carne_pesce", name: "Cosce di pollo" },
+    { cat: "carne_pesce", name: "Tacchino" }, { cat: "carne_pesce", name: "Manzo" },
+    { cat: "carne_pesce", name: "Bistecche" }, { cat: "carne_pesce", name: "Fettine" },
+    { cat: "carne_pesce", name: "Arrosto" }, { cat: "carne_pesce", name: "Maiale" },
+    { cat: "carne_pesce", name: "Costine" }, { cat: "carne_pesce", name: "Vitello" },
+    { cat: "carne_pesce", name: "Agnello" }, { cat: "carne_pesce", name: "Coniglio" },
+    { cat: "carne_pesce", name: "Hamburger" }, { cat: "carne_pesce", name: "Polpette" },
+    { cat: "carne_pesce", name: "Salsicce" }, { cat: "carne_pesce", name: "Spiedini" },
+    { cat: "carne_pesce", name: "Salmone" }, { cat: "carne_pesce", name: "Merluzzo" },
+    { cat: "carne_pesce", name: "Branzino" }, { cat: "carne_pesce", name: "Orata" },
+    { cat: "carne_pesce", name: "Spigola" }, { cat: "carne_pesce", name: "Sogliola" },
+    { cat: "carne_pesce", name: "Platessa" }, { cat: "carne_pesce", name: "Tonno fresco" },
+    { cat: "carne_pesce", name: "Pesce spada" }, { cat: "carne_pesce", name: "Sgombro" },
+    { cat: "carne_pesce", name: "Alici" }, { cat: "carne_pesce", name: "Sarde" },
+    { cat: "carne_pesce", name: "Gamberi" }, { cat: "carne_pesce", name: "Gamberetti" },
+    { cat: "carne_pesce", name: "Scampi" }, { cat: "carne_pesce", name: "Cozze" },
+    { cat: "carne_pesce", name: "Vongole" }, { cat: "carne_pesce", name: "Calamari" },
+    { cat: "carne_pesce", name: "Polpo" }, { cat: "carne_pesce", name: "Seppie" },
+    { cat: "carne_pesce", name: "Frutti di mare" }, { cat: "carne_pesce", name: "Seitan" },
+    { cat: "carne_pesce", name: "Tempeh" },
+
+    // ---- Pane e Panetteria ----
+    { cat: "panetteria", name: "Pane" }, { cat: "panetteria", name: "Pane integrale" },
+    { cat: "panetteria", name: "Pane casereccio" }, { cat: "panetteria", name: "Panini" },
+    { cat: "panetteria", name: "Rosetta" }, { cat: "panetteria", name: "Baguette" },
+    { cat: "panetteria", name: "Ciabatta" }, { cat: "panetteria", name: "Filone" },
+    { cat: "panetteria", name: "Grissini" }, { cat: "panetteria", name: "Piadine" },
+    { cat: "panetteria", name: "Pane carasau" }, { cat: "panetteria", name: "Focaccia" },
+    { cat: "panetteria", name: "Taralli" }, { cat: "panetteria", name: "Friselle" },
+    { cat: "panetteria", name: "Pancarré" }, { cat: "panetteria", name: "Brioche" },
+    { cat: "panetteria", name: "Cornetti" }, { cat: "panetteria", name: "Croissant" },
+    { cat: "panetteria", name: "Pasticcini" }, { cat: "panetteria", name: "Panettone" },
+    { cat: "panetteria", name: "Pandoro" }, { cat: "panetteria", name: "Crostata" },
+
+    // ---- Colazione ----
+    { cat: "colazione", name: "Biscotti" }, { cat: "colazione", name: "Frollini" },
+    { cat: "colazione", name: "Biscotti integrali" }, { cat: "colazione", name: "Merendine" },
+    { cat: "colazione", name: "Fette biscottate" }, { cat: "colazione", name: "Gallette di riso" },
+    { cat: "colazione", name: "Cereali" }, { cat: "colazione", name: "Corn flakes" },
+    { cat: "colazione", name: "Fiocchi d'avena" }, { cat: "colazione", name: "Muesli" },
+    { cat: "colazione", name: "Granola" }, { cat: "colazione", name: "Marmellata" },
+    { cat: "colazione", name: "Confettura" }, { cat: "colazione", name: "Miele" },
+    { cat: "colazione", name: "Nutella" }, { cat: "colazione", name: "Crema spalmabile" },
+    { cat: "colazione", name: "Cacao" }, { cat: "colazione", name: "Orzo solubile" },
+    { cat: "colazione", name: "Caffè" }, { cat: "colazione", name: "Capsule caffè" },
+    { cat: "colazione", name: "Cialde caffè" }, { cat: "colazione", name: "Tè" },
+    { cat: "colazione", name: "Tisana" }, { cat: "colazione", name: "Zucchero" },
+
+    // ---- Dispensa ----
+    { cat: "dispensa", name: "Pasta" }, { cat: "dispensa", name: "Spaghetti" },
+    { cat: "dispensa", name: "Penne" }, { cat: "dispensa", name: "Fusilli" },
+    { cat: "dispensa", name: "Farfalle" }, { cat: "dispensa", name: "Rigatoni" },
+    { cat: "dispensa", name: "Linguine" }, { cat: "dispensa", name: "Tagliatelle" },
+    { cat: "dispensa", name: "Lasagne" }, { cat: "dispensa", name: "Pasta all'uovo" },
+    { cat: "dispensa", name: "Pasta integrale" }, { cat: "dispensa", name: "Pasta senza glutine" },
+    { cat: "dispensa", name: "Cous cous" }, { cat: "dispensa", name: "Riso" },
+    { cat: "dispensa", name: "Riso basmati" }, { cat: "dispensa", name: "Riso venere" },
+    { cat: "dispensa", name: "Farina" }, { cat: "dispensa", name: "Farina integrale" },
+    { cat: "dispensa", name: "Farina di mais" }, { cat: "dispensa", name: "Fecola" },
+    { cat: "dispensa", name: "Amido di mais" }, { cat: "dispensa", name: "Zucchero di canna" },
+    { cat: "dispensa", name: "Sale" }, { cat: "dispensa", name: "Olio d'oliva" },
+    { cat: "dispensa", name: "Olio di semi" }, { cat: "dispensa", name: "Aceto" },
+    { cat: "dispensa", name: "Aceto balsamico" }, { cat: "dispensa", name: "Lievito" },
+    { cat: "dispensa", name: "Lievito madre" }, { cat: "dispensa", name: "Orzo" },
+    { cat: "dispensa", name: "Farro" }, { cat: "dispensa", name: "Cracker" },
+    { cat: "dispensa", name: "Patatine" }, { cat: "dispensa", name: "Taralli salati" },
+    { cat: "dispensa", name: "Popcorn" }, { cat: "dispensa", name: "Fagioli" },
+    { cat: "dispensa", name: "Fagioli cannellini" }, { cat: "dispensa", name: "Lenticchie" },
+    { cat: "dispensa", name: "Ceci" }, { cat: "dispensa", name: "Piselli in scatola" },
+    { cat: "dispensa", name: "Soia" }, { cat: "dispensa", name: "Passata di pomodoro" },
+    { cat: "dispensa", name: "Polpa di pomodoro" }, { cat: "dispensa", name: "Sugo pronto" },
+    { cat: "dispensa", name: "Pelati" }, { cat: "dispensa", name: "Concentrato di pomodoro" },
+    { cat: "dispensa", name: "Tonno in scatola" }, { cat: "dispensa", name: "Sgombro in scatola" },
+    { cat: "dispensa", name: "Brodo granulare" }, { cat: "dispensa", name: "Dado" },
+    { cat: "dispensa", name: "Capperi" }, { cat: "dispensa", name: "Olive" },
+    { cat: "dispensa", name: "Noci" }, { cat: "dispensa", name: "Mandorle" },
+    { cat: "dispensa", name: "Nocciole" }, { cat: "dispensa", name: "Arachidi" },
+    { cat: "dispensa", name: "Pistacchi" }, { cat: "dispensa", name: "Uvetta" },
+    { cat: "dispensa", name: "Semi di girasole" }, { cat: "dispensa", name: "Semi di chia" },
+    { cat: "dispensa", name: "Frutta secca" }, { cat: "dispensa", name: "Ketchup" },
+    { cat: "dispensa", name: "Maionese" }, { cat: "dispensa", name: "Senape" },
+    { cat: "dispensa", name: "Salsa di soia" }, { cat: "dispensa", name: "Pepe" },
+    { cat: "dispensa", name: "Peperoncino in polvere" }, { cat: "dispensa", name: "Curry" },
+    { cat: "dispensa", name: "Cannella" }, { cat: "dispensa", name: "Vaniglia" },
+    { cat: "dispensa", name: "Paprika" }, { cat: "dispensa", name: "Noce moscata" },
+    { cat: "dispensa", name: "Alloro" }, { cat: "dispensa", name: "Tortillas" },
+    { cat: "dispensa", name: "Farina per pizza" }, { cat: "dispensa", name: "Lievito di birra" },
+    { cat: "dispensa", name: "Cioccolato" }, { cat: "dispensa", name: "Caramelle" },
+
+    // ---- Surgelati ----
+    { cat: "surgelati", name: "Gelato" }, { cat: "surgelati", name: "Ghiaccioli" },
+    { cat: "surgelati", name: "Sorbetto" }, { cat: "surgelati", name: "Pesce surgelato" },
+    { cat: "surgelati", name: "Bastoncini di pesce" }, { cat: "surgelati", name: "Piselli surgelati" },
+    { cat: "surgelati", name: "Spinaci surgelati" }, { cat: "surgelati", name: "Verdure surgelate" },
+    { cat: "surgelati", name: "Misto mare" }, { cat: "surgelati", name: "Misto per soffritto" },
+    { cat: "surgelati", name: "Patatine surgelate" }, { cat: "surgelati", name: "Cotoletta surgelata" },
+    { cat: "surgelati", name: "Hamburger surgelato" }, { cat: "surgelati", name: "Pizza surgelata" },
+    { cat: "surgelati", name: "Lasagne surgelate" }, { cat: "surgelati", name: "Gnocchi surgelati" },
+    { cat: "surgelati", name: "Tortellini surgelati" }, { cat: "surgelati", name: "Frutti di bosco surgelati" },
+    { cat: "surgelati", name: "Minestrone surgelato" }, { cat: "surgelati", name: "Polpette surgelate" },
+
+    // ---- Bevande ----
+    { cat: "bevande", name: "Acqua naturale" }, { cat: "bevande", name: "Acqua frizzante" },
+    { cat: "bevande", name: "Vino rosso" }, { cat: "bevande", name: "Vino bianco" },
+    { cat: "bevande", name: "Birra" }, { cat: "bevande", name: "Birra analcolica" },
+    { cat: "bevande", name: "Succo di frutta" }, { cat: "bevande", name: "Coca Cola" },
+    { cat: "bevande", name: "Fanta" }, { cat: "bevande", name: "Sprite" },
+    { cat: "bevande", name: "Aranciata" }, { cat: "bevande", name: "Chinotto" },
+    { cat: "bevande", name: "Tè freddo" }, { cat: "bevande", name: "Spumante" },
+    { cat: "bevande", name: "Prosecco" }, { cat: "bevande", name: "Champagne" },
+    { cat: "bevande", name: "Amaro" }, { cat: "bevande", name: "Grappa" },
+    { cat: "bevande", name: "Whisky" }, { cat: "bevande", name: "Vodka" },
+    { cat: "bevande", name: "Rum" }, { cat: "bevande", name: "Gin" },
+    { cat: "bevande", name: "Aperitivo" }, { cat: "bevande", name: "Energy drink" },
+    { cat: "bevande", name: "Acqua tonica" },
+
+    // ---- Casa e Igiene ----
+    { cat: "casa", name: "Detersivo piatti" }, { cat: "casa", name: "Detersivo lavatrice" },
+    { cat: "casa", name: "Detergente pavimenti" }, { cat: "casa", name: "Sapone" },
+    { cat: "casa", name: "Sapone di Marsiglia" }, { cat: "casa", name: "Shampoo" },
+    { cat: "casa", name: "Balsamo capelli" }, { cat: "casa", name: "Bagnoschiuma" },
+    { cat: "casa", name: "Gel doccia" }, { cat: "casa", name: "Carta igienica" },
+    { cat: "casa", name: "Scottex" }, { cat: "casa", name: "Fazzoletti" },
+    { cat: "casa", name: "Tovaglioli di carta" }, { cat: "casa", name: "Spugne" },
+    { cat: "casa", name: "Strofinacci" }, { cat: "casa", name: "Candeggina" },
+    { cat: "casa", name: "Ammorbidente" }, { cat: "casa", name: "Sgrassatore" },
+    { cat: "casa", name: "Anticalcare" }, { cat: "casa", name: "Disinfettante" },
+    { cat: "casa", name: "Insetticida" }, { cat: "casa", name: "Deodorante ambiente" },
+    { cat: "casa", name: "Dentifricio" }, { cat: "casa", name: "Spazzolino" },
+    { cat: "casa", name: "Filo interdentale" }, { cat: "casa", name: "Collutorio" },
+    { cat: "casa", name: "Rasoio" }, { cat: "casa", name: "Lamette" },
+    { cat: "casa", name: "Schiuma da barba" }, { cat: "casa", name: "Deodorante" },
+    { cat: "casa", name: "Cotton fioc" }, { cat: "casa", name: "Cerotti" },
+    { cat: "casa", name: "Pannolini" }, { cat: "casa", name: "Assorbenti" },
+    { cat: "casa", name: "Salviette umidificate" }, { cat: "casa", name: "Sacchetti spazzatura" },
+    { cat: "casa", name: "Pile / Batterie" }, { cat: "casa", name: "Lampadine" },
+    { cat: "casa", name: "Alluminio" }, { cat: "casa", name: "Pellicola trasparente" },
+    { cat: "casa", name: "Carta forno" }, { cat: "casa", name: "Fiammiferi" },
+    { cat: "casa", name: "Accendino" }, { cat: "casa", name: "Crema viso" },
+    { cat: "casa", name: "Crema corpo" }, { cat: "casa", name: "Crema mani" },
+    { cat: "casa", name: "Cotone idrofilo" }, { cat: "casa", name: "Crocchette" },
+    { cat: "casa", name: "Cibo per gatti" }, { cat: "casa", name: "Cibo per cani" },
+    { cat: "casa", name: "Lettiera" },
   ];
+
+  // Alias/varianti aggiuntive che fanno match sullo stesso prodotto/categoria pur non
+  // comparendo come nome proprio nei suggerimenti (es. prefissi, plurali, sinonimi).
+  const EXTRA_MATCH_WORDS = [
+    { cat: "frutta_verdura", words: ["pomodor","zucchin","melanzan","peperon","cipollott","cetriol","cavolett","broccol","bietol","susin","albicocc","fragol","cachi","fich","mirtill","lampon","topinambur","ravanell"] },
+    { cat: "latticini", words: ["yogurt","mozzarell","formaggi","stracchin","ricott","robiol","gorgonzol","parmigian","pecorin","provolon","scamorz","caciott","crescenz","fontin","tofu"] },
+    { cat: "carne_pesce", words: ["prosciutt","salam","mortadell","pancett","wurstel","macinat","pollo","tacchin","bistecc","fettin","arrost","costin","salsicc","polpett","spiedin","salmon","merluzz","branzin","orat","spigol","sogliol","tonno","spada","sgombr","alici","sard","gamber","scamp","cozz","vongol","calamar","seppi","seitan","tempeh"] },
+    { cat: "panetteria", words: ["panin","grissin","piadin","focacc","tarall","frisell","brioch","cornett","croissant","pasticcin","panettone","pandor"] },
+    { cat: "colazione", words: ["biscott","frollin","merendin","fette biscottate","gallett","cereal","muesli","granol","marmellat","confettur","miele","nutella","cacao","caffe","caffè","cialde","capsule","tisan","zuccher"] },
+    { cat: "dispensa", words: ["spaghett","penne","fusill","farfall","rigaton","linguin","tagliatell","lasagn","couscous","cous cous","farin","fecol","amid","olio","acet","lievit","cracker","patatin","popcorn","fagiol","lenticchi","cec","passat","polpa","sugo","pelat","concentrat","brodo","dado","cappe","oliv","mandorl","nocciol","arachid","pistacc","uvett","ketchup","maiones","senap","peperoncin","cannell","vanigli","paprik","tortill","cioccolat","caramell"] },
+    { cat: "surgelati", words: ["surgelat","gelat","ghiacciol","sorbett","bastoncini","patatine surgelate","hamburger surgelato","pizza surgelata","lasagne surgelate","gnocchi surgelati","tortellini surgelati","minestrone surgelato","polpette surgelate"] },
+    { cat: "bevande", words: ["acqua","vino","birra","succo","succh","bibit","coca","cola","fanta","sprite","aranciat","chinott","spumant","prosecc","champagn","liquor","amar","grapp","whisky","vodka","rum","gin","aperitiv","energy drink","tonic"] },
+    { cat: "casa", words: ["detersiv","detergent","sapon","shampoo","balsam","bagnoschium","carta igienica","scottex","fazzolett","tovaglioli","spugn","strofinacci","candeggin","ammorbident","sgrassator","anticalcar","disinfettant","igienizzant","insetticid","dentifricio","spazzolin","collutorio","rasoio","lamette","deodorant","cotton fioc","cerott","pannolin","assorbent","salviette","sacchett","pile","batter","lampadin","alluminio","pellicola","carta forno","crocchette","lettiera"] },
+  ];
+
   function suggestCategory(name, categories) {
     const n = name.toLowerCase();
-    for (const rule of AUTO_CAT_RULES) {
+    for (const rule of EXTRA_MATCH_WORDS) {
       if (categories[rule.cat] && rule.words.some(w => n.includes(w))) return rule.cat;
     }
     return null;
+  }
+
+  // Cerca nel catalogo prodotti già categorizzato: prodotti che iniziano con la query
+  // vengono prima, poi quelli che la contengono altrove. Max risultati limitato.
+  function searchCatalog(query, categories, max = 6) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const starts = [];
+    const contains = [];
+    for (const p of PRODUCT_CATALOG) {
+      if (!categories[p.cat]) continue;
+      const n = p.name.toLowerCase();
+      if (n.startsWith(q)) starts.push(p);
+      else if (n.includes(q)) contains.push(p);
+    }
+    const results = [...starts, ...contains].slice(0, max);
+    // Se non c'è nessun match esatto nel catalogo ma un alias noto riconosce la categoria,
+    // proponi comunque il testo scritto dall'utente con la categoria suggerita.
+    if (results.length === 0 && q.length >= 3) {
+      const guessedCat = suggestCategory(q, categories);
+      if (guessedCat) {
+        return [{ cat: guessedCat, name: capitalize(query.trim()), guessed: true }];
+      }
+    }
+    return results;
   }
 
   // Prima lettera maiuscola, resto invariato (rispetta maiuscole interne es. "iPhone")
@@ -650,25 +848,80 @@
     closeEdit();
   });
 
-  // ---- Aggiunta prodotto con suggerimento categoria ----
+  // ---- Aggiunta prodotto: ricerca/autocomplete stile Google dal catalogo categorizzato ----
   let suggestedCatId = null;
-  input.addEventListener("input", () => {
-    const s = suggestCategory(input.value.trim(), categories);
-    if (s && s !== activeCategory) {
-      suggestedCatId = s;
-      const cat = categories[s];
-      suggestBanner.innerHTML = `Suggerimento: <b>${cat.icon || ""} ${cat.label}</b>`;
-      suggestBanner.style.display = "flex";
-    } else {
+  let activeSuggestionIndex = -1;
+  let currentSuggestions = [];
+
+  function renderSuggestions() {
+    const query = input.value.trim();
+    currentSuggestions = searchCatalog(query, categories);
+    activeSuggestionIndex = -1;
+
+    if (currentSuggestions.length === 0) {
       suggestBanner.style.display = "none";
+      suggestBanner.innerHTML = "";
       suggestedCatId = null;
+      return;
+    }
+
+    suggestBanner.innerHTML = "";
+    suggestBanner.style.display = "flex";
+    currentSuggestions.forEach((p, idx) => {
+      const cat = categories[p.cat];
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "suggest-row";
+      row.dataset.idx = idx;
+      row.innerHTML = `
+        <svg class="suggest-icon" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="M14 14L18 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="suggest-name">${p.name}</span>
+        <span class="suggest-cat" style="--chip-color:${cat.color}">${cat.icon || ""} ${cat.label}</span>
+      `;
+      row.addEventListener("click", () => pickSuggestion(p));
+      suggestBanner.appendChild(row);
+    });
+  }
+
+  function pickSuggestion(p) {
+    input.value = p.name;
+    activeCategory = p.cat;
+    catPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === p.cat));
+    suggestBanner.style.display = "none";
+    suggestBanner.innerHTML = "";
+    currentSuggestions = [];
+    qtyNumInput.focus();
+  }
+
+  input.addEventListener("input", renderSuggestions);
+
+  input.addEventListener("keydown", (e) => {
+    if (currentSuggestions.length === 0) return;
+    const rows = suggestBanner.querySelectorAll(".suggest-row");
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, currentSuggestions.length - 1);
+      rows.forEach((r, i) => r.classList.toggle("active", i === activeSuggestionIndex));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, -1);
+      rows.forEach((r, i) => r.classList.toggle("active", i === activeSuggestionIndex));
+    } else if (e.key === "Enter" && activeSuggestionIndex >= 0) {
+      e.preventDefault();
+      pickSuggestion(currentSuggestions[activeSuggestionIndex]);
+    } else if (e.key === "Escape") {
+      suggestBanner.style.display = "none";
+      currentSuggestions = [];
     }
   });
-  suggestBanner.addEventListener("click", () => {
-    if (!suggestedCatId) return;
-    activeCategory = suggestedCatId;
-    catPicker.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === suggestedCatId));
-    suggestBanner.style.display = "none";
+
+  document.addEventListener("click", (e) => {
+    if (!suggestBanner.contains(e.target) && e.target !== input) {
+      suggestBanner.style.display = "none";
+    }
+  });
+  input.addEventListener("focus", () => {
+    if (input.value.trim()) renderSuggestions();
   });
 
   form.addEventListener("submit", (e) => {
@@ -682,6 +935,8 @@
     qtyNumInput.value = "";
     qtyUnitSelect.value = "pz";
     suggestBanner.style.display = "none";
+    suggestBanner.innerHTML = "";
+    currentSuggestions = [];
     input.focus();
   });
 
@@ -877,10 +1132,13 @@
   }
   #switch-group:hover{ border-color:var(--ink-soft); }
 
+  #add-form-wrap{
+    position:relative;
+    margin:22px 0 8px;
+  }
   #add-form{
     display:flex;
     gap:8px;
-    margin:22px 0 8px;
   }
   #item-input{ flex:1; min-width:0; }
   #qty-num-input{ width:62px; flex-shrink:0; }
@@ -917,18 +1175,52 @@
 
   #suggest-banner{
     display:none;
+    flex-direction:column;
+    position:absolute;
+    left:0;
+    right:0;
+    top:calc(100% + 4px);
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.08);
+    overflow:hidden;
+    z-index:20;
+  }
+  .suggest-row{
+    display:flex;
     align-items:center;
-    gap:6px;
-    font-size:12.5px;
-    color:var(--ink-soft);
-    background:var(--chip-bg);
-    border:1px dashed var(--line);
-    border-radius:10px;
-    padding:8px 12px;
-    margin-bottom:14px;
+    gap:10px;
+    width:100%;
+    text-align:left;
+    padding:11px 14px;
+    border:none;
+    background:none;
+    font-family:inherit;
     cursor:pointer;
   }
-  #suggest-banner:hover{ border-color:var(--accent); }
+  .suggest-row:not(:last-child){ border-bottom:1px solid var(--line); }
+  .suggest-row:hover, .suggest-row.active{ background:var(--chip-bg); }
+  .suggest-icon{ width:15px; height:15px; color:var(--ink-soft); flex-shrink:0; }
+  .suggest-name{
+    flex:1;
+    min-width:0;
+    font-size:15px;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .suggest-cat{
+    flex-shrink:0;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    background:var(--chip-bg);
+    border:1px solid var(--chip-color, var(--line));
+    border-radius:20px;
+    padding:3px 9px;
+    white-space:nowrap;
+  }
 
   #cat-picker-row{
     display:flex;
@@ -1436,14 +1728,15 @@
         <button id="switch-group">Cambia gruppo</button>
       </header>
 
-      <form id="add-form">
-        <input id="item-input" type="text" placeholder="Aggiungi un prodotto…" autocomplete="off" required>
-        <input id="qty-num-input" type="text" inputmode="decimal" placeholder="qtà" autocomplete="off">
-        <select id="qty-unit-select" aria-label="Unità di misura"></select>
-        <button type="submit" class="add-btn" aria-label="Aggiungi">+</button>
-      </form>
-
-      <div id="suggest-banner"></div>
+      <div id="add-form-wrap">
+        <form id="add-form">
+          <input id="item-input" type="text" placeholder="Aggiungi un prodotto…" autocomplete="off" required>
+          <input id="qty-num-input" type="text" inputmode="decimal" placeholder="qtà" autocomplete="off">
+          <select id="qty-unit-select" aria-label="Unità di misura"></select>
+          <button type="submit" class="add-btn" aria-label="Aggiungi">+</button>
+        </form>
+        <div id="suggest-banner"></div>
+      </div>
 
       <div id="cat-picker-row">
         <div id="cat-picker"></div>
